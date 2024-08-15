@@ -9,7 +9,7 @@ from music_diffusion.utils import Mel
 
 def main(args):
     mel = Mel()
-
+    os.makedirs(args.output_dir, exist_ok=True)
     if args.image is not None:
         image = Image.open(args.image)
         audio = mel.image_to_audio(image)
