@@ -1,5 +1,8 @@
 import librosa
 import numpy as np
+from datasets import Image
+from typing import Union, Callable
+from PIL import Image
 class Mel():
     def __init__(
             self,
@@ -84,27 +87,18 @@ class Mel():
         Returns:
             `PIL Image`: grayscale image of x_res x y_res
         """
+        # generate mel-spectrogram
         S = librosa.feature.melspectrogram(
-            y=self.get_audio_slice(slice), sr=self.sr, n_fft=self.n_fft, hop_length=self.hop_length, n_mels=self.n_mels
+            y=self.get_audio_slice(slice),
+            sr=self.sr, n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            n_mels=self.n_mels
         )
+        #convert spectrogram to logarithmic scale
         log_S = librosa.power_to_db(S, ref=ref, top_db=self.top_db)
+        #Normalize and convert to byte data
         bytedata = (((log_S + self.top_db) * 255 / self.top_db).clip(0, 255) + 0.5).astype(np.uint8)
+        #turn bytedata into image
         image = Image.fromarray(bytedata)
         return image
 
-    def image_to_audio(self, image: Image.Image) -> np.ndarray:
-        """Converts spectrogram to audio.
-
-        Args:
-            image (`PIL Image`): x_res x y_res grayscale image
-
-        Returns:
-            audio (`np.ndarray`): raw audio
-        """
-        bytedata = np.frombuffer(image.tobytes(), dtype="uint8").reshape((image.height, image.width))
-        log_S = bytedata.astype("float") * self.top_db / 255 - self.top_db
-        S = librosa.db_to_power(log_S)
-        audio = librosa.feature.inverse.mel_to_audio(
-            S, sr=self.sr, n_fft=self.n_fft, hop_length=self.hop_length, n_iter=self.n_iter
-        )
-        return audio
