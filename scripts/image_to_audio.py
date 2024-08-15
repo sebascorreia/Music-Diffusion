@@ -2,7 +2,7 @@ import os
 import argparse
 from PIL import Image
 import sys
-
+import IPython.display as ipd
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.utils import Mel
 
@@ -13,7 +13,7 @@ def main(args):
     if args.image is not None:
         image = Image.open(args.image)
         audio = mel.image_to_audio(image)
-        image.show()
+        ipd.display(image)
         mel.play_audio(audio)
 
 
