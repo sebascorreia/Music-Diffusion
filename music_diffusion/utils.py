@@ -4,6 +4,7 @@ from datasets import Image
 from typing import Union, Callable
 from PIL import Image
 import IPython.display as ipd
+import soundfile as sf
 class Mel():
     def __init__(
             self,
@@ -34,7 +35,8 @@ class Mel():
         self.y_res = y_res
         self.n_mels = self.y_res
         self.slice_size = self.x_res * self.hop_length - 1
-
+    def save_audio(self, audio: np.ndarray, filename: str):
+        sf.write(filename, audio, self.sr)
     def load_audio(self, audio_file: str = None, raw_audio: np.ndarray = None):
         """Load audio.
 

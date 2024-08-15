@@ -13,8 +13,8 @@ def main(args):
     if args.image is not None:
         image = Image.open(args.image)
         audio = mel.image_to_audio(image)
-        display(image)
-        mel.play_audio(audio)
+        image.save(args.output_dir)
+        mel.save_audio(audio, os.path.join(args.output_dir, 'audio.wav'))
 
 
 if __name__ == '__main__':
