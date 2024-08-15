@@ -84,7 +84,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--audio_files', type=str)
     parser.add_argument('--output_dir', type=str, default='data')
-    parser.add_argument("--resolution",type=str,default="256")
+    parser.add_argument(
+        "--resolution",
+        type=str,
+        default="256",
+        help="Either square resolution or width,height.",
+    )
     parser.add_argument("--hop_length", type=int, default=512)
     parser.add_argument("--push_to_hub", type=str, default=None)
     parser.add_argument("--sample_rate", type=int, default=22050)
@@ -102,5 +107,4 @@ if __name__ == '__main__':
         except ValueError:
             raise ValueError("Resolution must be a tuple of two integers or a single integer.")
     assert isinstance(args.resolution, tuple)
-
     main(args)
