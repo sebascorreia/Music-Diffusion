@@ -9,7 +9,7 @@ from datasets import Dataset, DatasetDict, Features, Image, Value
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger("preprocessing")
 import sys
-# Add the parent directory to the system path
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from music_diffusion.utils import Mel
