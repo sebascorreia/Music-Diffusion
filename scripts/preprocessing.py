@@ -1,21 +1,29 @@
-#CODE FROM TETICIO/AUDIO-DIFFUSION
+import os
 import argparse
 import io
-import logging
-import os
-import re
-
 import numpy as np
+import logging
 import pandas as pd
 from datasets import Dataset, DatasetDict, Features, Image, Value
-from diffusers.pipelines.audio_diffusion import Mel
-from tqdm.auto import tqdm
 
 logging.basicConfig(level=logging.WARN)
-logger = logging.getLogger("audio_to_images")
+logger = logging.getLogger("preprocessing")
+import sys
+# Add the parent directory to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-
+from music_diffusion.utils import Mel
+from tqdm.auto import tqdm
 def main(args):
+
+    os.makedirs(args.output_dir, exist_ok=True)
+    folder_path = args.audio_files
+    audio_files = [
+        os.path.join(folder_path, f)
+        for f in os.listdir(folder_path)
+        if f.endswith((".mp3", ".wav", ".m4a"))
+    ]
+    examples= []
     mel = Mel(
         x_res=args.resolution[0],
         y_res=args.resolution[1],
@@ -23,14 +31,6 @@ def main(args):
         sample_rate=args.sample_rate,
         n_fft=args.n_fft,
     )
-    os.makedirs(args.output_dir, exist_ok=True)
-    audio_files = [
-        os.path.join(root, file)
-        for root, _, files in os.walk(args.input_dir)
-        for file in files
-        if re.search("\.(mp3|wav|m4a)$", file, re.IGNORECASE)
-    ]
-    examples = []
     try:
         for audio_file in tqdm(audio_files):
             try:
@@ -41,37 +41,36 @@ def main(args):
                 print(e)
                 continue
             for slice in range(mel.get_number_of_slices()):
-                image = mel.audio_slice_to_image(slice)
-                assert image.width == args.resolution[0] and image.height == args.resolution[1], "Wrong resolution"
-                # skip completely silent slices
-                if all(np.frombuffer(image.tobytes(), dtype=np.uint8) == 255):
-                    logger.warn("File %s slice %d is completely silent", audio_file, slice)
+                image=mel.audio_slice_to_image(slice)
+                assert image.width==args.resolution[0] and image.height==args.resolution[1], "Wrong Resolution"
+                if all(np.frombuffer(image.tobytes(), dtype=np.uint8)==255):
+                    logger.warning("File %s slice %d is silent", audio_file, slice)
                     continue
-                with io.BytesIO() as output:
-                    image.save(output, format="PNG")
-                    bytes = output.getvalue()
+                with io.BytesIO() as buffer:
+                    image.save(buffer, "PNG")
+                    bytes = buffer.getvalue()
                 examples.extend(
                     [
                         {
-                            "image": {"bytes": bytes},
-                            "audio_file": audio_file,
-                            "slice": slice,
+                            "image":{"bytes":bytes},
+                            "audio_file":audio_file,
+                            "slice":slice,
                         }
                     ]
                 )
     except Exception as e:
         print(e)
     finally:
-        if len(examples) == 0:
-            logger.warn("No valid audio files were found.")
+        if len(examples)==0:
+            logger.warning("No files found.")
             return
-        ds = Dataset.from_pandas(
+        ds =Dataset.from_pandas(
             pd.DataFrame(examples),
             features=Features(
                 {
-                    "image": Image(),
-                    "audio_file": Value(dtype="string"),
-                    "slice": Value(dtype="int16"),
+                    "image":Image(),
+                    "audio_file":Value(dtype="string"),
+                    "slice":Value(dtype="int16"),
                 }
             ),
         )
@@ -81,10 +80,10 @@ def main(args):
             dsd.push_to_hub(args.push_to_hub)
 
 
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Create dataset of Mel spectrograms from directory of audio files.")
-    parser.add_argument("--input_dir", type=str)
-    parser.add_argument("--output_dir", type=str, default="data")
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--audio_files', type=str)
+    parser.add_argument('--output_dir', type=str, default='data')
     parser.add_argument(
         "--resolution",
         type=str,
@@ -96,11 +95,8 @@ if __name__ == "__main__":
     parser.add_argument("--sample_rate", type=int, default=22050)
     parser.add_argument("--n_fft", type=int, default=2048)
     args = parser.parse_args()
-
-    if args.input_dir is None:
-        raise ValueError("You must specify an input directory for the audio files.")
-
-    # Handle the resolutions.
+    if args.audio_files is None:
+        raise ValueError("Please provide audio file path")
     try:
         args.resolution = (int(args.resolution), int(args.resolution))
     except ValueError:
@@ -111,5 +107,4 @@ if __name__ == "__main__":
         except ValueError:
             raise ValueError("Resolution must be a tuple of two integers or a single integer.")
     assert isinstance(args.resolution, tuple)
-
     main(args)
