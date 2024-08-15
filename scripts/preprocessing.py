@@ -9,7 +9,7 @@ from datasets import Dataset, DatasetDict, Features, Image, Value
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger("preprocessing")
 
-from ..music_diffusion.utils import Mel
+from music_diffusion.utils import Mel
 from tqdm.auto import tqdm
 def main(args):
 
