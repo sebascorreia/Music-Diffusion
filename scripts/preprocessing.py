@@ -81,7 +81,7 @@ def main(args):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser
+    parser = argparse.ArgumentParser()
     parser.add_argument('--audio_files', type=str)
     parser.add_argument('--output_dir', type=str, default='data')
     parser.add_argument("--resolution",type=str,default="256")
