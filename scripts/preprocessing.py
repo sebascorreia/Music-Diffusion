@@ -25,8 +25,8 @@ def main(args):
     ]
     examples= []
     mel = Mel(
-        x_res=args.resolution,
-        y_res=args.resolution,
+        x_res=args.resolution[0],
+        y_res=args.resolution[1],
         hop_length=args.hop_length,
         sample_rate=args.sample_rate,
         n_fft=args.n_fft,
