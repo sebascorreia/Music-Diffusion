@@ -3,7 +3,7 @@ import numpy as np
 from datasets import Image
 from typing import Union, Callable
 from PIL import Image
-import IPython.display as ipd
+from IPython.display import Audio,display
 import soundfile as sf
 class Mel():
     def __init__(
@@ -122,7 +122,7 @@ class Mel():
         )
         return audio
     def play_audio(self, audio: np.ndarray):
-        ipd.Audio(audio,rate=self.sr)
+        display(Audio(audio))
 
 
 

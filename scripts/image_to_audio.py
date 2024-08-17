@@ -5,6 +5,7 @@ import sys
 import IPython.display as display
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.utils import Mel
+from datasets import load_from_disk
 
 
 def main(args):
@@ -15,6 +16,16 @@ def main(args):
         audio = mel.image_to_audio(image)
         image.save(os.path.join(args.output_dir, "image.png"))
         mel.save_audio(audio, os.path.join(args.output_dir, 'audio.wav'))
+    else:
+        dataset = load_from_disk(args.dataset)
+        dataset = dataset['train']
+        for i,data in enumerate(dataset):
+            spectrogram = data["image"]
+            audio = mel.image_to_audio(spectrogram)
+            mel.save_audio(audio, os.path.join(args.output_dir, f"audio_{i}.wav"))
+            spectrogram.save(os.path.join(args.output_dir, f"spectrogram_{i}.jpg"))
+
+
 
 
 if __name__ == '__main__':
