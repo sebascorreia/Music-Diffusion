@@ -7,7 +7,6 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 import torchvision.transforms as transforms
 from accelerate import Accelerator
 from huggingface_hub import create_repo, upload_folder
-from mpmath.identification import transforms
 from tqdm.auto import tqdm
 from pathlib import Path
 import torch.nn.functional as F
@@ -32,7 +31,7 @@ def main(args):
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler= noise_scheduler)
         model = pipeline.unet
     else:
-        model = Unet2d #Default diffusion Unet 2d model
+        model = Unet2d() #Default diffusion Unet 2d model
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     augmentations = transforms.Compose(
@@ -94,7 +93,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
             bs = clean_images.shape[0]
             #sampling random timestep for each image
             timesteps = torch.randint(
-                0, noise_scheduler.config.num_timesteps, (bs,), device=clean_images.device,
+                0, noise_scheduler.config.num_train_timesteps, (bs,), device=clean_images.device,
                 dtype=torch.int64
             ).long()
             #add noise to clean images
@@ -163,6 +162,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     if args.dataset == None:
         raise ValueError("Please provide training data directory")
-    if args.ouput_dir == None:
+    if args.output_dir == None:
         raise ValueError("Please provide output directory")
     main(args)
