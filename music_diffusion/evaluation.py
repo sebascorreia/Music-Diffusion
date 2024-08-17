@@ -1,5 +1,4 @@
 from diffusers import DDPMPipeline
-from diffusers.utils import make_image_grid
 import os
 import torch
 from music_diffusion.utils import Mel
