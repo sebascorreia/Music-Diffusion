@@ -13,3 +13,4 @@ transformers
 requests==2.31.0
 pandas~=2.2.1
 tqdm~=4.66.5
+fadtk

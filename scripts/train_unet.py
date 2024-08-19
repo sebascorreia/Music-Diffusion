@@ -12,7 +12,7 @@ from pathlib import Path
 import torch.nn.functional as F
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from music_diffusion.evaluation import evaluate
+from music_diffusion.evaluation import evaluate, FAD
 from music_diffusion.models import Unet2d
 def main(args):
     if os.path.exists(args.dataset):
@@ -135,6 +135,8 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                     )
                 else:
                     pipeline.save.pretrained(args.output_dir)
+                if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
+                    FAD(args, epoch, pipeline)
 
 
 
@@ -158,6 +160,8 @@ if __name__ == '__main__':
     parser.add_argument('--save_image_epochs', type=int, default=10)
     parser.add_argument('--save_model_epochs', type=int, default=30)
     parser.add_argument("--start_epoch", type=int, default=0)
+    parser.add_argument("--fad", type=int, default=1)
+
 
     args = parser.parse_args()
     if args.dataset == None:

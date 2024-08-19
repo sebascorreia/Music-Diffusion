@@ -4,7 +4,7 @@ import io
 import numpy as np
 import logging
 import pandas as pd
-from datasets import Dataset, DatasetDict, Features, Image, Value
+from datasets import Dataset, DatasetDict, Features, Image, Value, Audio
 
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger("preprocessing")
@@ -14,8 +14,9 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from music_diffusion.utils import Mel
 from tqdm.auto import tqdm
-def main(args):
 
+
+def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
     folder_path = args.audio_files
     audio_files = [
@@ -23,7 +24,7 @@ def main(args):
         for f in os.listdir(folder_path)
         if f.endswith((".mp3", ".wav", ".m4a"))
     ]
-    examples= []
+    examples = []
     mel = Mel(
         x_res=args.resolution[0],
         y_res=args.resolution[1],
@@ -41,9 +42,10 @@ def main(args):
                 print(e)
                 continue
             for slice in range(mel.get_number_of_slices()):
-                image=mel.audio_slice_to_image(slice)
-                assert image.width==args.resolution[0] and image.height==args.resolution[1], "Wrong Resolution"
-                if all(np.frombuffer(image.tobytes(), dtype=np.uint8)==255):
+                audio_slice_data = mel.get_audio_slice(slice)
+                image = mel.audio_slice_to_image(slice)
+                assert image.width == args.resolution[0] and image.height == args.resolution[1], "Wrong Resolution"
+                if all(np.frombuffer(image.tobytes(), dtype=np.uint8) == 255):
                     logger.warning("File %s slice %d is silent", audio_file, slice)
                     continue
                 with io.BytesIO() as buffer:
@@ -52,29 +54,41 @@ def main(args):
                 examples.extend(
                     [
                         {
-                            "image":{"bytes":bytes},
-                            "audio_file":audio_file,
-                            "slice":slice,
+                            "image": {"bytes": bytes},
+                            "audio_slice": audio_slice_data,
+                            "audio_file": audio_file,
+                            "slice": slice,
                         }
                     ]
                 )
     except Exception as e:
         print(e)
     finally:
-        if len(examples)==0:
+        if len(examples) == 0:
             logger.warning("No files found.")
             return
-        ds =Dataset.from_pandas(
+        #image dataset
+        ds = Dataset.from_pandas(
             pd.DataFrame(examples),
             features=Features(
                 {
-                    "image":Image(),
-                    "audio_file":Value(dtype="string"),
-                    "slice":Value(dtype="int16"),
+                    "image": Image(),
+                    "audio_slice": Audio(sampling_rate=args.sample_rate),
+                    "audio_file": Value(dtype="string"),
+                    "slice": Value(dtype="int16"),
                 }
             ),
         )
-        dsd = DatasetDict({"train": ds})
+        #Train/Test/Val Splits
+        train_val_test_split = ds.train_test_split(test_size=0.2, seed=42)
+        test_split = train_val_test_split['test']
+        train_val_split = train_val_test_split['train'].train_test_split(test_size=0.25, seed=42)
+
+        dsd = DatasetDict({
+            "train": train_val_split['train'],
+            "val":train_val_split['test'],
+            "test": test_split
+        })
         dsd.save_to_disk(os.path.join(args.output_dir))
         if args.push_to_hub:
             dsd.push_to_hub(args.push_to_hub)
