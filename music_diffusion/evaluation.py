@@ -47,6 +47,7 @@ def FAD(args, epoch, pipeline):
     fad = fadtk.FrechetAudioDistance(model, audio_load_worker=8, load_model=False)
     score = fad.score(real_folder, gen_folder)
     inf_r2 = None
+    return score
 
 
 

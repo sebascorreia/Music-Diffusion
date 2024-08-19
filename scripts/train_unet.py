@@ -11,9 +11,12 @@ from tqdm.auto import tqdm
 from pathlib import Path
 import torch.nn.functional as F
 import sys
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.evaluation import evaluate, FAD
 from music_diffusion.models import Unet2d
+
+
 def main(args):
     if os.path.exists(args.dataset):
         dataset = load_from_disk(args.dataset)["train"]
@@ -28,10 +31,10 @@ def main(args):
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.train_steps)
     if args.from_pretrained is not None:
-        pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler= noise_scheduler)
+        pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
         model = pipeline.unet
     else:
-        model = Unet2d() #Default diffusion Unet 2d model
+        model = Unet2d()  #Default diffusion Unet 2d model
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     augmentations = transforms.Compose(
@@ -78,7 +81,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
         progress_bar = tqdm(total=len(train_dataloader), disable=not accelerator.is_local_main_process)
         progress_bar.set_description(f"Epoch {epoch}")
 
-        if epoch< args.start_epoch:
+        if epoch < args.start_epoch:
             for step in range(len(train_dataloader)):
                 optimizer.step()
                 lr_scheduler.step()
@@ -113,7 +116,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
             progress_bar.update(1)
             logs = {"loss": loss.detach().item(),
                     "lr": lr_scheduler.get_last_lr()[0],
-                    "step": global_step,}
+                    "step": global_step, }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             global_step += 1
@@ -122,23 +125,22 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
 
         if accelerator.is_main_process:
             pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
-            if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.epochs -1:
+            if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.epochs - 1:
                 evaluate(args, epoch, pipeline)
 
-            if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.epochs -1:
+            if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.epochs - 1:
                 if args.push_to_hub:
                     upload_folder(
-                        repo_id = repo_id,
-                        folder_path= args.output_dir,
-                        commit_message= f"Epoch {epoch}",
+                        repo_id=repo_id,
+                        folder_path=args.output_dir,
+                        commit_message=f"Epoch {epoch}",
                         ignore_patterns=["step_*", "epoch_*"]
                     )
                 else:
                     pipeline.save.pretrained(args.output_dir)
                 if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
-                    FAD(args, epoch, pipeline)
-
-
+                    fad_score = FAD(args, epoch, pipeline)
+                    print("FAD score is: ", fad_score)
 
 
 if __name__ == '__main__':
@@ -161,7 +163,6 @@ if __name__ == '__main__':
     parser.add_argument('--save_model_epochs', type=int, default=30)
     parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument("--fad", type=int, default=1)
-
 
     args = parser.parse_args()
     if args.dataset == None:
