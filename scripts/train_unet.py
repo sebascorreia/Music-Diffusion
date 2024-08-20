@@ -138,9 +138,9 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                     )
                 else:
                     pipeline.save.pretrained(args.output_dir)
-                if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
-                    fad_score = FAD(args, epoch, pipeline)
-                    print("FAD score is: ", fad_score)
+            if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
+                fad_score = FAD(args, epoch, pipeline)
+                print("FAD score is: ", fad_score)
 
 
 if __name__ == '__main__':
