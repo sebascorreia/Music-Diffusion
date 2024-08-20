@@ -43,10 +43,7 @@ def main(args):
                 continue
             for slice in range(mel.get_number_of_slices()):
                 audio_slice_data = mel.get_audio_slice(slice)
-                audio_slice_bytes = io.BytesIO()
-                np.save(audio_slice_bytes, audio_slice_data)
-                audio_slice_bytes = audio_slice_bytes.getvalue()
-
+                audio_slice_bytes = audio_slice_data.tobytes()
                 image = mel.audio_slice_to_image(slice)
                 assert image.width == args.resolution[0] and image.height == args.resolution[1], "Wrong Resolution"
                 if all(np.frombuffer(image.tobytes(), dtype=np.uint8) == 255):
