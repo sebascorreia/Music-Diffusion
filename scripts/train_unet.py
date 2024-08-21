@@ -1,6 +1,7 @@
 import argparse
 import os
 import torch
+import logging
 from datasets import load_from_disk, load_dataset
 from diffusers import UNet2DModel, DDPMScheduler, DDIMScheduler, DDPMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
