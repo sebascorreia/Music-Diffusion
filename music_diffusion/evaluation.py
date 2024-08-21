@@ -57,7 +57,7 @@ def FAD(args, epoch, pipeline):
     print("Real folder embeddings done")
     fadtk.cache_embedding_files(gen_folder, model, workers=300)
     fadtk.log("Generated folder embeddings done")
-    fad = fadtk.FrechetAudioDistance(model, audio_load_worker=8, load_model=False)
+    fad = fadtk.FrechetAudioDistance(model, audio_load_worker=300, load_model=False)
     fadtk.log("FAD COMPUTED")
     score = fad.score(real_folder, gen_folder)
     fadtk.log("FAD Score:", score)
