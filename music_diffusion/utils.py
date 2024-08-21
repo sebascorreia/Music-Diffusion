@@ -40,7 +40,7 @@ class Mel():
     def save_audio(self, audio: np.ndarray, filename: str):
         try:
             sf.write(filename, audio, self.sr)
-        except TypeError:
+        except IndexError:
             sf.write(filename, audio['array'], self.sr)
 
     def load_audio(self, audio_file: str = None, raw_audio: np.ndarray = None):
