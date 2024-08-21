@@ -3,8 +3,9 @@ import numpy as np
 from datasets import Image
 from typing import Union, Callable
 from PIL import Image
-from IPython.display import Audio,display
 import soundfile as sf
+
+
 class Mel():
     def __init__(
             self,
@@ -35,8 +36,13 @@ class Mel():
         self.y_res = y_res
         self.n_mels = self.y_res
         self.slice_size = self.x_res * self.hop_length - 1
+
     def save_audio(self, audio: np.ndarray, filename: str):
-        sf.write(filename, audio, self.sr)
+        try:
+            sf.write(filename, audio, self.sr)
+        except TypeError:
+            sf.write(filename, audio['array'], self.sr)
+
     def load_audio(self, audio_file: str = None, raw_audio: np.ndarray = None):
         """Load audio.
 
@@ -121,9 +127,3 @@ class Mel():
             S, sr=self.sr, n_fft=self.n_fft, hop_length=self.hop_length, n_iter=self.n_iter
         )
         return audio
-    def play_audio(self, audio: np.ndarray):
-        display(Audio(audio))
-
-
-
-

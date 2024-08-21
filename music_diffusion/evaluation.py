@@ -26,27 +26,40 @@ def evaluate(args, epoch, pipeline):
 
 def FAD(args, epoch, pipeline):
     real_dataset = load_from_disk(args.dataset)["test"]
-
     mel = Mel()
-    gen_images = pipeline(
-        batch_size=1000,
-        generator=torch.Generator(device='cpu').manual_seed(55),
-        # Use a separate torch generator to avoid rewinding the random state of the main training loop
-    ).images
     gen_folder= os.path.join(args.output_dir, f"test{epoch}")
-    for i,image in enumerate(gen_images):
-        audio = mel.image_to_audio(image)
-        mel.save_audio(audio, os.path.join(gen_folder, f"genaudio{i}.wav"))
+    os.makedirs(gen_folder, exist_ok=True)
+    total_images = 2
+    batch_size = 2
+    image_count=0
+    while image_count < total_images:
+        remaining_images = total_images - image_count
+        current_batch_size = min(batch_size, remaining_images)
+        gen_images = pipeline(
+            batch_size=current_batch_size,
+            generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+        # Use a separate torch generator to avoid rewinding the random state of the main training loop
+        ).images
+
+        for i,image in enumerate(gen_images):
+            audio = mel.image_to_audio(image)
+            mel.save_audio(audio, os.path.join(gen_folder, f"genaudio{i}.wav"))
+        image_count += current_batch_size
     audio_set = real_dataset['audio_slice']
     real_folder = os.path.join(args.output_dir, "real_data")
+    os.makedirs(real_folder, exist_ok=True)
     for i,audio in enumerate(audio_set):
         mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
     model = fadtk.CLAPLaionModel(type='music')
+    print("model: ", model.name)
     fadtk.cache_embedding_files(real_folder, model, workers=8)
+    print("Real folder embeddings done")
     fadtk.cache_embedding_files(gen_folder, model, workers=8)
+    print("Generated folder embeddings done")
     fad = fadtk.FrechetAudioDistance(model, audio_load_worker=8, load_model=False)
+    print("FAD COMPUTED")
     score = fad.score(real_folder, gen_folder)
-    inf_r2 = None
+    print("FAD Score:", score)
     return score
 
 

@@ -5,7 +5,7 @@ import numpy as np
 import logging
 import pandas as pd
 from datasets import Dataset, DatasetDict, Features, Image, Value, Audio
-
+import soundfile as sf
 logging.basicConfig(level=logging.WARN)
 logger = logging.getLogger("preprocessing")
 import sys
@@ -43,7 +43,9 @@ def main(args):
                 continue
             for slice in range(mel.get_number_of_slices()):
                 audio_slice_data = mel.get_audio_slice(slice)
-                audio_slice_bytes = audio_slice_data.tobytes()
+                with io.BytesIO() as audio_buffer:
+                    sf.write(audio_buffer, audio_slice_data, args.sample_rate, format='WAV')
+                    audio_slice_bytes = audio_buffer.getvalue()
                 image = mel.audio_slice_to_image(slice)
                 assert image.width == args.resolution[0] and image.height == args.resolution[1], "Wrong Resolution"
                 if all(np.frombuffer(image.tobytes(), dtype=np.uint8) == 255):
