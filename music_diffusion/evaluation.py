@@ -4,10 +4,15 @@ import os
 import torch
 from torchvision.datasets import folder
 import subprocess
-
+from typing import Callable, Union
+from pathlib import Path
 from music_diffusion.utils import Mel
 import fadtk
 from datasets import load_from_disk
+from .fad_functions import *
+from pathlib import Path
+from fadtk import ModelLoader
+import numpy as np
 
 def evaluate(args, epoch, pipeline):
     # Sample some images from random noise (this is the backward diffusion process).
@@ -52,17 +57,20 @@ def FAD(args, epoch, pipeline):
         mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
     model = fadtk.VGGishModel()
     print("model: ", model.name)
-    fadtk.cache_embedding_files(real_folder, model, workers=300)
-    fadtk.log("Real folder embeddings done")
+    no_cache_embedding_files(real_folder, model, workers=300)
     print("Real folder embeddings done")
-    fadtk.cache_embedding_files(gen_folder, model, workers=300)
-    fadtk.log("Generated folder embeddings done")
+    no_cache_embedding_files(gen_folder, model, workers=300)
+    print("Generated folder embeddings done")
     fad = fadtk.FrechetAudioDistance(model, audio_load_worker=300, load_model=False)
-    fadtk.log("FAD COMPUTED")
+    print("FAD COMPUTED")
     score = fad.score(real_folder, gen_folder)
-    fadtk.log("FAD Score:", score)
     print("FAD Score:", score)
     return score
+
+
+
+
+
 
 
 
