@@ -50,7 +50,7 @@ def no_cache_embedding_batch(args):
     fs: list[Path]
     ml: ModelLoader
     fs, ml, kwargs = args
-    fad = fadtk.FrechetAudioDistance(ml, **kwargs)
+    fad = NoCacheFAD(ml, **kwargs)
     for f in fs:
         print(f"Loading {f} using {ml.name}")
         fad.No_cache_embedding_file(f)
