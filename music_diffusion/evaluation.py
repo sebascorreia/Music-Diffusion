@@ -53,12 +53,14 @@ def FAD(args, epoch, pipeline):
     model = fadtk.CLAPLaionModel(type='music')
     print("model: ", model.name)
     fadtk.cache_embedding_files(real_folder, model, workers=8)
+    fadtk.log("Real folder embeddings done")
     print("Real folder embeddings done")
     fadtk.cache_embedding_files(gen_folder, model, workers=8)
-    print("Generated folder embeddings done")
+    fadtk.log("Generated folder embeddings done")
     fad = fadtk.FrechetAudioDistance(model, audio_load_worker=8, load_model=False)
-    print("FAD COMPUTED")
+    fadtk.log("FAD COMPUTED")
     score = fad.score(real_folder, gen_folder)
+    fadtk.log("FAD Score:", score)
     print("FAD Score:", score)
     return score
 
