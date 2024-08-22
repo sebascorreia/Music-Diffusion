@@ -40,11 +40,12 @@ def FAD(args, epoch, pipeline):
     while image_count < total_images:
         remaining_images = total_images - image_count
         current_batch_size = min(batch_size, remaining_images)
-        gen_images = pipeline(
-            batch_size=current_batch_size,
-            generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+        with torch.no_grad:
+            gen_images = pipeline(
+                batch_size=current_batch_size,
+                generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
         # Use a separate torch generator to avoid rewinding the random state of the main training loop
-        ).images
+            ).images
 
         for i,image in enumerate(gen_images):
             audio = mel.image_to_audio(image)

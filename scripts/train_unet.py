@@ -142,6 +142,8 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
             if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
                 fad_score = FAD(args, epoch, pipeline)
                 print("FAD score is: ", fad_score)
+                torch.set_grad_enabled(True)  # Re-enable gradient calculation
+                model.train()
 
 
 if __name__ == '__main__':
