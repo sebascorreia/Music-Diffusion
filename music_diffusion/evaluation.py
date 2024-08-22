@@ -34,8 +34,8 @@ def FAD(args, epoch, pipeline):
     mel = Mel()
     gen_folder= os.path.join(args.output_dir, f"test{epoch}")
     os.makedirs(gen_folder, exist_ok=True)
-    total_images = 2
-    batch_size = 2
+    total_images = 6
+    batch_size = 6
     image_count=0
     while image_count < total_images:
         remaining_images = total_images - image_count
@@ -57,11 +57,11 @@ def FAD(args, epoch, pipeline):
         mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
     model = fadtk.VGGishModel()
     print("model: ", model.name)
-    no_cache_embedding_files(real_folder, model, workers=300)
+    no_cache_embedding_files(real_folder, model, workers=16)
     print("Real folder embeddings done")
-    no_cache_embedding_files(gen_folder, model, workers=300)
+    no_cache_embedding_files(gen_folder, model, workers=2)
     print("Generated folder embeddings done")
-    fad = fadtk.FrechetAudioDistance(model, audio_load_worker=300, load_model=False)
+    fad = fadtk.FrechetAudioDistance(model, audio_load_worker=16, load_model=False)
     print("FAD COMPUTED")
     score = fad.score(real_folder, gen_folder)
     print("FAD Score:", score)

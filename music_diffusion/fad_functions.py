@@ -5,7 +5,7 @@ import numpy as np
 import torchaudio
 import torch
 import multiprocessing
-
+from tqdm import tqdm
 
 def get_no_cache_embedding_path(model: str, audio_dir: Union[str, Path]) -> Path:
     """
@@ -36,14 +36,15 @@ def no_cache_embedding_files(files: Union[list[Path], str, Path], ml: ModelLoade
         return
 
     print(f"[Frechet Audio Distance] Loading {len(files)} audio files...")
-
-    # Split files into batches
-    batches = list(np.array_split(files, workers))
-
-    # Cache embeddings in parallel
     multiprocessing.set_start_method('spawn', force=True)
-    with torch.multiprocessing.Pool(workers) as pool:
-        pool.map(no_cache_embedding_batch, [(b, ml, kwargs) for b in batches])
+
+    # Determine the batch size based on the number of workers
+    batch_size = len(files)//workers
+    for i in tqdm(range(0, len(files), batch_size), desc="Processing batches"):
+        batch_files = files[i:i+batch_size]
+            # Cache embeddings in parallel
+        with torch.multiprocessing.Pool(workers) as pool:
+            pool.map(no_cache_embedding_batch, [(b, ml, kwargs) for b in np.array_split(batch_files, workers)])
 
 
 def no_cache_embedding_batch(args):
