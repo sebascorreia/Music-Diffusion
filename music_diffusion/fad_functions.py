@@ -39,8 +39,10 @@ def no_cache_embedding_files(files: Union[list[Path], str, Path], ml: ModelLoade
     multiprocessing.set_start_method('spawn', force=True)
 
     # Determine the batch size based on the number of workers
-    for i in tqdm(range(0, len(files), batch_size), desc="Processing batches"):
+    for i in range(0, len(files), batch_size):
         chunk = files[i:i+batch_size]
+        print(f"Processing chunk {i // batch_size + 1} / {len(files) // batch_size + 1} with {len(chunk)} files...")
+
         batches = list(np.array_split(chunk, workers))
             # Cache embeddings in parallel
         with torch.multiprocessing.Pool(workers) as pool:
@@ -54,7 +56,7 @@ def no_cache_embedding_batch(args):
     fad = NoCacheFAD(ml, **kwargs)
     for f in fs:
         print(f"Loading {f} using {ml.name}")
-        fad.No_cache_embedding_file(f)
+        fad.cache_embedding_file(f)
 
 
 class NoCacheFAD(FrechetAudioDistance):

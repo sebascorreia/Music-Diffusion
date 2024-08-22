@@ -57,7 +57,7 @@ def FAD(args, epoch, pipeline):
         mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
     model = fadtk.VGGishModel()
     print("model: ", model.name)
-    no_cache_embedding_files(real_folder, model, workers=16)
+    no_cache_embedding_files(real_folder, model, workers=25)
     print("Real folder embeddings done")
     no_cache_embedding_files(gen_folder, model, workers=2)
     print("Generated folder embeddings done")
