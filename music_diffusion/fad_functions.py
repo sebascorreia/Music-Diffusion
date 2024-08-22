@@ -18,7 +18,7 @@ def get_no_cache_embedding_path(model: str, audio_dir: Union[str, Path]) -> Path
     return audio_dir.parent / "embeddings" / model / audio_dir.with_suffix(".npy").name
 
 
-def no_cache_embedding_files(files: Union[list[Path], str, Path], ml: ModelLoader, workers: int = 8, **kwargs):
+def no_cache_embedding_files(files: Union[list[Path], str, Path], ml: ModelLoader, workers: int = 8,batch_size:int =50, **kwargs):
     """
     Get embeddings for all audio files in a directory.
 
@@ -39,12 +39,12 @@ def no_cache_embedding_files(files: Union[list[Path], str, Path], ml: ModelLoade
     multiprocessing.set_start_method('spawn', force=True)
 
     # Determine the batch size based on the number of workers
-    batch_size = len(files)//workers
     for i in tqdm(range(0, len(files), batch_size), desc="Processing batches"):
-        batch_files = files[i:i+batch_size]
+        chunk = files[i:i+batch_size]
+        batches = list(np.array_split(chunk, workers))
             # Cache embeddings in parallel
         with torch.multiprocessing.Pool(workers) as pool:
-            pool.map(no_cache_embedding_batch, [(b, ml, kwargs) for b in np.array_split(batch_files, workers)])
+            pool.map(no_cache_embedding_batch, [(b, ml, kwargs) for b in batches])
 
 
 def no_cache_embedding_batch(args):
