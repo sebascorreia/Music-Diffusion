@@ -2,6 +2,7 @@ import argparse
 import os
 import torch
 import logging
+from diffusers.training_utils import EMAModel
 from datasets import load_from_disk, load_dataset
 from diffusers import UNet2DModel, DDPMScheduler, DDIMScheduler, DDPMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
@@ -51,15 +52,21 @@ def main(args):
 
     dataset.set_transform(transform)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.train_batch_size, shuffle=True)
+    ema_model = EMAModel(
+        getattr(model, "module", model).parameters(),
+        use_ema_warmup=args.ema_warmup,
+        power=args.ema_power,
+        max_value=args.ema_max_decay,
+    )
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=args.lr_warmup_steps,
         num_training_steps=(len(train_dataloader) * args.epochs)
     )
-    train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler)
+    train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler, ema_model)
 
 
-def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler):
+def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler, ema_model):
     accelerator = Accelerator(
         mixed_precision=args.mixed_precision,
         gradient_accumulation_steps=args.grad_accumulation_steps,
@@ -88,6 +95,8 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                 lr_scheduler.step()
                 progress_bar.update(1)
                 global_step += 1
+            if epoch == args.start_epoch - 1 and args.use_ema:
+                ema_model.optimization_step = global_step
 
         model.train()
         for step, batch in enumerate(train_dataloader):
@@ -112,12 +121,16 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                     accelerator.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
                 lr_scheduler.step()
+                if args.use_ema:
+                    ema_model.step(model.parameters())
                 optimizer.zero_grad()
 
             progress_bar.update(1)
             logs = {"loss": loss.detach().item(),
                     "lr": lr_scheduler.get_last_lr()[0],
                     "step": global_step, }
+            if args.use_ema:
+                logs["ema_decay"] = ema_model.decay
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             global_step += 1
@@ -125,7 +138,10 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
         accelerator.wait_for_everyone()
 
         if accelerator.is_main_process:
-            pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
+            unet = accelerator.unwrap_model(model)
+            pipeline = DDPMPipeline(unet=unet, scheduler=noise_scheduler)
+            if args.use_ema:
+                ema_model.copy_to(unet.parameters())
             if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.epochs - 1:
                 evaluate(args, epoch, pipeline)
 
@@ -166,6 +182,10 @@ if __name__ == '__main__':
     parser.add_argument('--save_model_epochs', type=int, default=30)
     parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument("--fad", type=int, default=1)
+    parser.add_argument("use_ema", type=bool, default=True)
+    parser.add_argument("--ema_warmup", type=bool, default=False) #turn on in case of long training
+    parser.add_argument("--ema_power", type=float, default=3 / 4) #use 2/3 to train for more than 1M steps
+    parser.add_argument("--ema_max_decay", type=float, default=0.9999)
 
     args = parser.parse_args()
     if args.dataset == None:

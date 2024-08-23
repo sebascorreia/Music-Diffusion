@@ -40,7 +40,7 @@ def FAD(args, epoch, pipeline):
     while image_count < total_images:
         remaining_images = total_images - image_count
         current_batch_size = min(batch_size, remaining_images)
-        with torch.no_grad:
+        with torch.no_grad():
             gen_images = pipeline(
                 batch_size=current_batch_size,
                 generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
@@ -56,7 +56,7 @@ def FAD(args, epoch, pipeline):
     os.makedirs(real_folder, exist_ok=True)
     for i,audio in enumerate(audio_set):
         mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
-    model = fadtk.VGGishModel()
+    model = fadtk.EncodecEmbModel(variant='24k')
     print("model: ", model.name)
     no_cache_embedding_files(real_folder, model, workers=3, batch_size=6)
     print("Real folder embeddings done")
