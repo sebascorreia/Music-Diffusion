@@ -8,7 +8,7 @@ from typing import Callable, Union
 from pathlib import Path
 from music_diffusion.utils import Mel
 import fadtk
-from datasets import load_from_disk
+from datasets import load_from_disk, load_dataset
 from .fad_functions import *
 from pathlib import Path
 from fadtk import ModelLoader
@@ -30,11 +30,14 @@ def evaluate(args, epoch, pipeline):
         image.save(os.path.join(folder, f"samples{i}.jpg"))
 
 def FAD(args, epoch, pipeline):
-    real_dataset = load_from_disk(args.dataset)["test"]
+    try:
+        real_dataset = load_from_disk(args.dataset)["test"]
+    except FileNotFoundError:
+        real_dataset = load_dataset(args.dataset, split="test")
     mel = Mel()
     gen_folder= os.path.join(args.output_dir, f"test{epoch}")
     os.makedirs(gen_folder, exist_ok=True)
-    total_images = 6
+    total_images = 500
     batch_size = 6
     image_count=0
     while image_count < total_images:
@@ -60,7 +63,7 @@ def FAD(args, epoch, pipeline):
     print("model: ", model.name)
     no_cache_embedding_files(real_folder, model, workers=3, batch_size=6)
     print("Real folder embeddings done")
-    no_cache_embedding_files(gen_folder, model, workers=2)
+    no_cache_embedding_files(gen_folder, model, workers=3, batch_size=6)
     print("Generated folder embeddings done")
     fad = NoCacheFAD(model, audio_load_worker=16, load_model=False)
     print("FAD COMPUTED")

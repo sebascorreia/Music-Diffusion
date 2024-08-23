@@ -37,6 +37,8 @@ def main(args):
         model = pipeline.unet
     else:
         model = Unet2d()  #Default diffusion Unet 2d model
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
     augmentations = transforms.Compose(
@@ -52,12 +54,17 @@ def main(args):
 
     dataset.set_transform(transform)
     train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=args.train_batch_size, shuffle=True)
+    device = next(model.parameters()).device
+    for param in model.parameters():
+        print(f"Model parameter device: {param.device}")
     ema_model = EMAModel(
         getattr(model, "module", model).parameters(),
         use_ema_warmup=args.ema_warmup,
         power=args.ema_power,
         max_value=args.ema_max_decay,
     )
+    ema_model.to(device)
+
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=args.lr_warmup_steps,
@@ -146,6 +153,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                 evaluate(args, epoch, pipeline)
 
             if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.epochs - 1:
+                pipeline.save_pretrained(args.output_dir)
                 if args.push_to_hub:
                     upload_folder(
                         repo_id=repo_id,
@@ -153,6 +161,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                         commit_message=f"Epoch {epoch}",
                         ignore_patterns=["step_*", "epoch_*"]
                     )
+
                 else:
                     pipeline.save.pretrained(args.output_dir)
             if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
@@ -175,14 +184,14 @@ if __name__ == '__main__':
     parser.add_argument('--scheduler', type=str, default='ddpm')
     parser.add_argument("--train_steps", type=int, default=1000)
     parser.add_argument('--lr_warmup_steps', type=int, default=500)
-    parser.add_argument('--mixed_precision', type=str, default='fp16')
+    parser.add_argument('--mixed_precision', type=str, default='no')
     parser.add_argument('--push_to_hub', type=bool, default=False)
     parser.add_argument('--hub_model_id', type=str, default=None)
     parser.add_argument('--save_image_epochs', type=int, default=10)
     parser.add_argument('--save_model_epochs', type=int, default=30)
     parser.add_argument("--start_epoch", type=int, default=0)
     parser.add_argument("--fad", type=int, default=1)
-    parser.add_argument("use_ema", type=bool, default=True)
+    parser.add_argument("--use_ema", type=bool, default=True)
     parser.add_argument("--ema_warmup", type=bool, default=False) #turn on in case of long training
     parser.add_argument("--ema_power", type=float, default=3 / 4) #use 2/3 to train for more than 1M steps
     parser.add_argument("--ema_max_decay", type=float, default=0.9999)
