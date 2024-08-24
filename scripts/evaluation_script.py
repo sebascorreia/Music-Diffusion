@@ -1,5 +1,7 @@
 import argparse
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline
 from datasets import load_dataset, load_from_disk
 from music_diffusion.evaluation import evaluate, FAD
