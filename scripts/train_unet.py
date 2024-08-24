@@ -34,6 +34,7 @@ def main(args):
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.train_steps)
     if args.from_pretrained is not None:
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+
         model = pipeline.unet
     else:
         model = Unet2d()  #Default diffusion Unet 2d model
@@ -165,7 +166,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                 else:
                     pipeline.save.pretrained(args.output_dir)
             if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
-                fad_score = FAD(args, epoch, pipeline)
+                fad_score = FAD(args, pipeline)
                 print("FAD score is: ", fad_score)
                 torch.set_grad_enabled(True)  # Re-enable gradient calculation
                 model.train()
@@ -195,7 +196,11 @@ if __name__ == '__main__':
     parser.add_argument("--ema_warmup", type=bool, default=False) #turn on in case of long training
     parser.add_argument("--ema_power", type=float, default=3 / 4) #use 2/3 to train for more than 1M steps
     parser.add_argument("--ema_max_decay", type=float, default=0.9999)
-
+    parser.add_argument('--num_gen_img', type=int, default=500)
+    parser.add_argument('--fad_model',
+                        type=str, default='dac',
+                        choices=['dac', 'enc24','enc48','vgg'],
+                        help=("Choose FAD model: dac, enc24,enc48 or vgg"),)
     args = parser.parse_args()
     if args.dataset == None:
         raise ValueError("Please provide training data directory")

@@ -29,15 +29,18 @@ def evaluate(args, epoch, pipeline):
         mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
         image.save(os.path.join(folder, f"samples{i}.jpg"))
 
-def FAD(args, epoch, pipeline):
+def FAD(args, pipeline):
     try:
         real_dataset = load_from_disk(args.dataset)["test"]
     except FileNotFoundError:
-        real_dataset = load_dataset(args.dataset, split="test")
+        try:
+            real_dataset = load_dataset(args.dataset, split="test")
+        except Exception as e:
+            raise e
     mel = Mel()
-    gen_folder= os.path.join(args.output_dir, f"test{epoch}")
+    gen_folder= os.path.join(args.output_dir, f"eval")
     os.makedirs(gen_folder, exist_ok=True)
-    total_images = 500
+    total_images = args.num_gen_img
     batch_size = 6
     image_count=0
     while image_count < total_images:
@@ -59,7 +62,16 @@ def FAD(args, epoch, pipeline):
     os.makedirs(real_folder, exist_ok=True)
     for i,audio in enumerate(audio_set):
         mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
-    model = fadtk.EncodecEmbModel(variant='24k')
+    if args.fadtk=='enc24':
+        model = fadtk.EncodecEmbModel(variant='24k')
+    elif args.fadtk=='enc48':
+        model = fadtk.EncodecEmbModel(variant='48k')
+    elif args.fadtk=='vgg':
+        model = fadtk.VGGishModel()
+    elif args.fadtk=='dac':
+        model = fadtk.DACModel()
+    else:
+        raise ValueError("fadtk model not implemented")
     print("model: ", model.name)
     no_cache_embedding_files(real_folder, model, workers=3, batch_size=6)
     print("Real folder embeddings done")
