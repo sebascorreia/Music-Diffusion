@@ -83,14 +83,12 @@ def main(args):
                 }
             ),
         )
-        #Train/Test/Val Splits
-        train_val_test_split = ds.train_test_split(test_size=0.2, seed=42)
-        test_split = train_val_test_split['test']
-        train_val_split = train_val_test_split['train'].train_test_split(test_size=0.25, seed=42)
+        #Train/Test/ Splits
+        train_test_split = ds.train_test_split(test_size=0.2, seed=42)
+        test_split = train_test_split['test']
 
         dsd = DatasetDict({
-            "train": train_val_split['train'],
-            "val":train_val_split['test'],
+            "train": train_test_split['train'],
             "test": test_split
         })
         dsd.save_to_disk(os.path.join(args.output_dir))

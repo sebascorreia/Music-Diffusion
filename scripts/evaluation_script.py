@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="sebascorreia/Maestro20h")
     parser.add_argument('--scheduler', type=str, default="ddpm")
     parser.add_argument('--train_steps', type=int, default=1000)
+    parser.add_argument('--fad_split', type=str, default='test')
     parser.add_argument('--fad_model',
                         type=str, default='dac',
                         choices=['dac', 'enc24', 'enc48', 'vgg'],

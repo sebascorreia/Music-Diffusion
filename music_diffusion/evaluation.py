@@ -14,28 +14,60 @@ from pathlib import Path
 from fadtk import ModelLoader
 import numpy as np
 import glob
+from PIL import Image
+import torchvision.transforms as transforms
 
 def evaluate(args, epoch, pipeline):
     # Sample some images from random noise (this is the backward diffusion process).
     # The default pipeline output type is `List[PIL.Image]`
     mel = Mel()
-    images = pipeline(
-        batch_size=args.eval_batch_size,
-        generator=torch.Generator(device='cpu').manual_seed(55), # Use a separate torch generator to avoid rewinding the random state of the main training loop
-    ).images
+    total_images = 100
+    batch_size = 6
+    image_count = 0
+
+    while image_count < total_images:
+        remaining_images = total_images - image_count
+        current_batch_size = min(batch_size, remaining_images)
+
+        with torch.no_grad():
+            gen_images = pipeline(
+                batch_size=current_batch_size,
+                generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+                # Use a separate torch generator to avoid rewinding the random state of the main training loop
+            ).images
     folder = os.path.join(args.output_dir, f"eval{epoch}")
     os.makedirs(folder, exist_ok=True)
     for i,image in enumerate(images):
         audio = mel.image_to_audio(image)
         mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
         image.save(os.path.join(folder, f"samples{i}.jpg"))
+def slerp(xt_1, xt_2, lamb):
+    omega = torch.acos(torch.dot(xt_1, torch.norm(xt)))
+def interpolation(args, pipeline):
+    preprocess = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5]),        # Convert PIL image to tensor
+    ])
+
+    img1 = preprocess(Image.open(args.img1)).unsqueeze(0).to("cuda")
+    img2 = preprocess(Image.open(args.img2)).unsqueeze(0).to("cuda")
+    timesteps = args.timesteps
+    noise1 = torch.randn_like(img1)
+    noise2 = torch.randn_like(img2)
+    xt1 = pipeline.scheduler.add_noise(img1, noise1, timesteps)
+    xt2 = pipeline.scheduler.add_noise(img2, noise2, timesteps)
+
+    if args.intp_type == 'linear':
+        xt_bar = (1-args.lambda_val) * xt1 + args.lambda_val * xt2
+    else:
+        xt_bar = slerp(xt1.flatten(), xt2.flatten(), args.lambda_val)
 
 def FAD(args, pipeline):
     try:
-        real_dataset = load_from_disk(args.dataset)["test"]
+        real_dataset = load_from_disk(args.dataset)[args.fad_split]
     except FileNotFoundError:
         try:
-            real_dataset = load_dataset(args.dataset, split="test")
+            real_dataset = load_dataset(args.dataset, split=args.fad_split)
         except Exception as e:
             raise e
     mel = Mel()
