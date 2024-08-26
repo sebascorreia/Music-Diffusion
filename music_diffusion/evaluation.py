@@ -66,24 +66,24 @@ def slerp(xt1, xt2, lamb):
         return (s1.unsqueeze(-1) * xt1) + (s2.unsqueeze(-1) * xt2)
 
 
-def interpolation(args, pipeline):
+def interpolation(img1,img2, pipeline, timesteps=50,lamb=0.5, intp_type='slerp '):
     preprocess = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5]),        # Convert PIL image to tensor
     ])
 
-    img1 = preprocess(Image.open(args.img1)).unsqueeze(0).to("cuda")
-    img2 = preprocess(Image.open(args.img2)).unsqueeze(0).to("cuda")
-    timesteps = args.timesteps
+    img1 = preprocess(img1.unsqueeze(0)).to("cuda")
+    img2 = preprocess(img2.unsqueeze(0)).to("cuda")
+    timesteps = torch.tensor([timesteps], device=img1.device)
     noise1 = torch.randn_like(img1)
     noise2 = torch.randn_like(img2)
     xt1 = pipeline.scheduler.add_noise(img1, noise1, timesteps)
     xt2 = pipeline.scheduler.add_noise(img2, noise2, timesteps)
 
-    if args.intp_type == 'linear':
-        xt_bar = lerp(xt1, xt2, args.lambda_val)
+    if intp_type == 'linear':
+        xt_bar = lerp(xt1, xt2, lamb)
     else:
-        xt_bar = slerp(xt1, xt2, args.lambda_val)
+        xt_bar = slerp(xt1, xt2, lamb)
     x0_bar = denoise(xt_bar,pipeline,timesteps)
     return x0_bar
 
