@@ -72,8 +72,8 @@ def interpolation(img1,img2, pipeline, timesteps=50,lamb=0.5, intp_type='slerp '
         transforms.Normalize([0.5], [0.5]),        # Convert PIL image to tensor
     ])
 
-    img1 = preprocess(img1.unsqueeze(0)).to("cuda")
-    img2 = preprocess(img2.unsqueeze(0)).to("cuda")
+    img1 = preprocess(img1).unsqueeze(0).to("cuda")
+    img2 = preprocess(img2).unsqueeze(0).to("cuda")
     timesteps = torch.tensor([timesteps], device=img1.device)
     noise1 = torch.randn_like(img1)
     noise2 = torch.randn_like(img2)
