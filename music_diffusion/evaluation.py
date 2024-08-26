@@ -41,8 +41,31 @@ def evaluate(args, epoch, pipeline):
         audio = mel.image_to_audio(image)
         mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
         image.save(os.path.join(folder, f"samples{i}.jpg"))
-def slerp(xt_1, xt_2, lamb):
-    omega = torch.acos(torch.dot(xt_1, torch.norm(xt)))
+
+def denoise(noisy_img, pipeline, timestep):
+    pipeline.scheduler.alphas_cumprod = pipeline.scheduler.alphas_cumprod.to(noisy_img.device)
+    for t in reversed(range(timestep)):
+        t_tensor = torch.tensor([t], device=noisy_img.device)
+        with torch.no_grad():
+            model_output = pipeline.unet(noisy_img, t_tensor).sample
+            denoisy_img = pipeline.scheduler.step(model_output, t_tensor, noisy_img).prev_sample
+    return denoisy_img
+def lerp(xt1,xt2,lamb):
+    return (1-lamb) * xt1 + lamb * xt2
+def slerp(xt1, xt2, lamb):
+    thr = 0.9995
+    xt1norm = xt1 / torch.norm(xt1, dim=-1, keepdim=True )
+    xt2norm = xt2 / torch.norm(xt2, dim=-1, keepdim=True )
+    omg = (xt1norm * xt2norm).sum(dim=-1)
+    if (torch.abs(omg) > thr).any():
+        return lerp(xt1, xt2, lamb)
+    else:
+        theta = torch.acos(omg)
+        s1 = torch.sin(theta - (theta * lamb))/ torch.sin(theta)
+        s2 = torch.sin(theta * lamb)/torch.sin(theta)
+        return (s1.unsqueeze(-1) * xt1) + (s2.unsqueeze(-1) * xt2)
+
+
 def interpolation(args, pipeline):
     preprocess = transforms.Compose([
         transforms.ToTensor(),
@@ -58,9 +81,12 @@ def interpolation(args, pipeline):
     xt2 = pipeline.scheduler.add_noise(img2, noise2, timesteps)
 
     if args.intp_type == 'linear':
-        xt_bar = (1-args.lambda_val) * xt1 + args.lambda_val * xt2
+        xt_bar = lerp(xt1, xt2, args.lambda_val)
     else:
-        xt_bar = slerp(xt1.flatten(), xt2.flatten(), args.lambda_val)
+        xt_bar = slerp(xt1, xt2, args.lambda_val)
+    x0_bar = denoise(xt_bar,pipeline,timesteps)
+    return x0_bar
+
 
 def FAD(args, pipeline):
     try:
