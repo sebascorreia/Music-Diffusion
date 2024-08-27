@@ -4,7 +4,7 @@ import torch
 import logging
 from diffusers.training_utils import EMAModel
 from datasets import load_from_disk, load_dataset
-from diffusers import UNet2DModel, DDPMScheduler, DDIMScheduler, DDPMPipeline
+from diffusers import UNet2DModel, DDPMScheduler, DDIMScheduler, DDPMPipeline, DDIMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
 import torchvision.transforms as transforms
 from accelerate import Accelerator
@@ -30,14 +30,19 @@ def main(args):
 
     if args.scheduler == "ddpm":
         noise_scheduler = DDPMScheduler(num_train_timesteps=args.train_steps)  #linear b_t [0.0001,0.02]
+        if args.from_pretrained is not None:
+            pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+            model = pipeline.unet
+        else:
+            model = Unet2d()  # Default diffusion Unet 2d model
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.train_steps)
-    if args.from_pretrained is not None:
-        pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+        if args.from_pretrained is not None:
+            pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+            model = pipeline.unet
+        else:
+            model = Unet2d()  # Default diffusion Unet 2d model
 
-        model = pipeline.unet
-    else:
-        model = Unet2d()  #Default diffusion Unet 2d model
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
@@ -146,7 +151,10 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
 
         if accelerator.is_main_process:
             unet = accelerator.unwrap_model(model)
-            pipeline = DDPMPipeline(unet=unet, scheduler=noise_scheduler)
+            if args.scheduler == 'ddpm':
+                pipeline = DDPMPipeline(unet=unet, scheduler=noise_scheduler)
+            else:
+                pipeline = DDIMPipeline(unet=unet, scheduler=noise_scheduler)
             if args.use_ema:
                 ema_model.copy_to(unet.parameters())
             if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.epochs - 1:
@@ -195,7 +203,7 @@ if __name__ == '__main__':
     parser.add_argument("--fad", type=int, default=1)
     parser.add_argument("--use_ema", type=bool, default=True)
     parser.add_argument("--ema_warmup", type=bool, default=False) #turn on in case of long training
-    parser.add_argument("--ema_power", type=float, default=3 / 4) #use 2/3 to train for more than 1M steps
+    parser.add_argument("--ema_power", type=float, default=0.75) #use 2/3 to train for more than 1M steps
     parser.add_argument("--ema_max_decay", type=float, default=0.9999)
     parser.add_argument('--num_gen_img', type=int, default=500)
     parser.add_argument('--fad_split', type=str, default='test')
