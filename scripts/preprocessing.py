@@ -19,11 +19,11 @@ from tqdm.auto import tqdm
 def main(args):
     os.makedirs(args.output_dir, exist_ok=True)
     folder_path = args.audio_files
-    audio_files = [
-        os.path.join(folder_path, f)
-        for f in os.listdir(folder_path)
-        if f.endswith((".mp3", ".wav", ".m4a"))
-    ]
+    audio_files = []
+    for root, dirs, files in os.walk(folder_path):
+        for f in files:
+            if f.endswith((".mp3", ".wav", ".m4a")):
+                audio_files.append(os.path.join(root, f))
     examples = []
     mel = Mel(
         x_res=args.resolution[0],
@@ -47,6 +47,8 @@ def main(args):
                     sf.write(audio_buffer, audio_slice_data, args.sample_rate, format='WAV')
                     audio_slice_bytes = audio_buffer.getvalue()
                 image = mel.audio_slice_to_image(slice)
+                if args.label:
+                    class_label = os.path.basename(os.path.dirname(audio_file))
                 assert image.width == args.resolution[0] and image.height == args.resolution[1], "Wrong Resolution"
                 if all(np.frombuffer(image.tobytes(), dtype=np.uint8) == 255):
                     logger.warning("File %s slice %d is silent", audio_file, slice)
@@ -54,17 +56,29 @@ def main(args):
                 with io.BytesIO() as buffer:
                     image.save(buffer, "PNG")
                     bytes = buffer.getvalue()
-
-                examples.extend(
-                    [
-                        {
-                            "image": {"bytes": bytes},
-                            "audio_slice": {"bytes": audio_slice_bytes},
-                            "audio_file": audio_file,
-                            "slice": slice,
-                        }
-                    ]
-                )
+                if args.label:
+                    examples.extend(
+                        [
+                            {
+                                "image": {"bytes": bytes},
+                                "audio_slice": {"bytes": audio_slice_bytes},
+                                "audio_file": audio_file,
+                                "slice": slice,
+                                "label": class_label,
+                            }
+                        ]
+                    )
+                else:
+                    examples.extend(
+                        [
+                            {
+                                "image": {"bytes": bytes},
+                                "audio_slice": {"bytes": audio_slice_bytes},
+                                "audio_file": audio_file,
+                                "slice": slice,
+                            }
+                        ]
+                    )
     except Exception as e:
         print(e)
     finally:
@@ -72,17 +86,31 @@ def main(args):
             logger.warning("No files found.")
             return
         #image dataset
-        ds = Dataset.from_pandas(
-            pd.DataFrame(examples),
-            features=Features(
-                {
-                    "image": Image(),
-                    "audio_slice": Audio(sampling_rate=args.sample_rate),
-                    "audio_file": Value(dtype="string"),
-                    "slice": Value(dtype="int16"),
-                }
-            ),
-        )
+        if args.label:
+            ds = Dataset.from_pandas(
+                pd.DataFrame(examples),
+                features=Features(
+                    {
+                        "image": Image(),
+                        "audio_slice": Audio(sampling_rate=args.sample_rate),
+                        "audio_file": Value(dtype="string"),
+                        "slice": Value(dtype="int16"),
+                        "label": Value(dtype="string"),
+                    }
+                ),
+            )
+        else:
+            ds = Dataset.from_pandas(
+                pd.DataFrame(examples),
+                features=Features(
+                    {
+                        "image": Image(),
+                        "audio_slice": Audio(sampling_rate=args.sample_rate),
+                        "audio_file": Value(dtype="string"),
+                        "slice": Value(dtype="int16"),
+                    }
+                ),
+            )
         #Train/Test/ Splits
         train_test_split = ds.train_test_split(test_size=0.2, seed=42)
         test_split = train_test_split['test']
@@ -106,6 +134,7 @@ if __name__ == '__main__':
         default="256",
         help="Either square resolution or width,height.",
     )
+    parser.add_argument("--label", type= bool, default=False)
     parser.add_argument("--hop_length", type=int, default=512)
     parser.add_argument("--push_to_hub", type=str, default=None)
     parser.add_argument("--sample_rate", type=int, default=22050)

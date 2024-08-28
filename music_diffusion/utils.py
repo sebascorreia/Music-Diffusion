@@ -110,7 +110,20 @@ class Mel():
         #turn bytedata into image
         image = Image.fromarray(bytedata)
         return image
-
+    def audio_to_image(self, audio: np.ndarray, ref: Union[float, Callable] = np.max) -> Image.Image:
+        S = librosa.feature.melspectrogram(
+            y= audio,
+            sr=self.sr, n_fft=self.n_fft,
+            hop_length=self.hop_length,
+            n_mels=self.n_mels
+        )
+        # convert spectrogram to logarithmic scale
+        log_S = librosa.power_to_db(S, ref=ref, top_db=self.top_db)
+        # Normalize and convert to byte data
+        bytedata = (((log_S + self.top_db) * 255 / self.top_db).clip(0, 255) + 0.5).astype(np.uint8)
+        # turn bytedata into image
+        image = Image.fromarray(bytedata)
+        return image
     def image_to_audio(self, image: Image.Image) -> np.ndarray:
         """Converts spectrogram to audio.
 

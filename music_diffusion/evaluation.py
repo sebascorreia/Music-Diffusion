@@ -53,6 +53,7 @@ def denoise(noisy_img, pipeline, timestep):
 def lerp(xt1,xt2,lamb):
     return (1-lamb) * xt1 + lamb * xt2
 def slerp(xt1, xt2, lamb):
+    #code based on: https://enzokro.dev/blog/posts/2022-11-16-pytorch-slerp/
     thr = 0.9995
     xt1norm = xt1 / torch.norm(xt1, dim=-1, keepdim=True )
     xt2norm = xt2 / torch.norm(xt2, dim=-1, keepdim=True )
