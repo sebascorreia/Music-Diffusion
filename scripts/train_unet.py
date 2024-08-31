@@ -16,7 +16,7 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.evaluation import evaluate, FAD
-from music_diffusion.models import Unet2d
+from music_diffusion.models import Unet2d, Unet2DConditional
 
 
 def main(args):
@@ -34,7 +34,10 @@ def main(args):
             pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
             model = pipeline.unet
         else:
-            model = Unet2d()  # Default diffusion Unet 2d model
+            if args.conditional:
+                model =Unet2DConditional(dataset['image'][0].width, args.classes)
+            else:
+                model = Unet2d(dataset['image'][0].width)  # Default diffusion Unet 2d model
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.train_steps)
         if args.from_pretrained is not None:
@@ -56,6 +59,8 @@ def main(args):
 
     def transform(examples):
         images = [augmentations(image) for image in examples["image"]]
+        if args.conditional:
+            return {"input":images, "label":examples["label"]}
         return {"input": images}
 
     dataset.set_transform(transform)
@@ -97,22 +102,24 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
     global_step = 0
 
     for epoch in range(args.epochs):
-        progress_bar = tqdm(total=len(train_dataloader), disable=not accelerator.is_local_main_process)
-        progress_bar.set_description(f"Epoch {epoch}")
+
 
         if epoch < args.start_epoch:
             for step in range(len(train_dataloader)):
                 optimizer.step()
                 lr_scheduler.step()
-                progress_bar.update(1)
                 global_step += 1
             if epoch == args.start_epoch - 1 and args.use_ema:
                 ema_model.optimization_step = global_step
             continue
+        progress_bar = tqdm(total=len(train_dataloader), disable=not accelerator.is_local_main_process)
+        progress_bar.set_description(f"Epoch {epoch}")
 
         model.train()
         for step, batch in enumerate(train_dataloader):
             clean_images = batch["input"]
+            if args.conditional:
+                class_labels = batch["label"]
             #sampling noise
             noise = torch.randn(clean_images.shape, device=clean_images.device)
             bs = clean_images.shape[0]
@@ -122,10 +129,14 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                 dtype=torch.int64
             ).long()
             #add noise to clean images
+
             noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
 
             with accelerator.accumulate(model):
-                noise_pred = model(noisy_images, timesteps)["sample"]
+                if args.conditional:
+                    noise_pred = model(noisy_images, timesteps,class_labels)["sample"]
+                else:
+                    noise_pred = model(noisy_images, timesteps)["sample"]
                 loss = F.mse_loss(noise_pred, noise)
                 accelerator.backward(loss)
 
@@ -207,6 +218,8 @@ if __name__ == '__main__':
     parser.add_argument("--ema_max_decay", type=float, default=0.9999)
     parser.add_argument('--num_gen_img', type=int, default=500)
     parser.add_argument('--fad_split', type=str, default='test')
+    parser.add_argument('--conditional', type=bool, default=False)
+    parser.add_argument('--classes', type=int, default=10)
     parser.add_argument('--fad_model',
                         type=str, default='dac',
                         choices=['dac', 'enc24','enc48','vgg'],
