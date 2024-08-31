@@ -32,6 +32,7 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default="sebascorreia/Maestro20h")
     parser.add_argument('--scheduler', type=str, default="ddim")
     parser.add_argument('--time_steps', type=int, default=50)
+    parser.add_argument('--eta', type=float, default=0.0)
     parser.add_argument('--fad_split', type=str, default='train')
     parser.add_argument('--fad_model',
                         type=str, default='dac',
