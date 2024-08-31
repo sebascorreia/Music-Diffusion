@@ -133,7 +133,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
             if args.conditional:
                 class_labels = batch["label"]
             #sampling noise
-            noise = torch.randn(clean_images.shape, device=clean_images.device)
+            noise=torch.randn(clean_images.shape, device=clean_images.device)
             bs = clean_images.shape[0]
             #sampling random timestep for each image
             timesteps = torch.randint(
