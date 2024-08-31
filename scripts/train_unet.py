@@ -16,8 +16,19 @@ import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.evaluation import evaluate, FAD
-from music_diffusion.models import Unet2d, Unet2DConditional
-
+from music_diffusion.models import Unet2d, CustomUnet2DConditional
+label_mapping = {
+    'zero': 0,
+    'one': 1,
+    'two': 2,
+    'three': 3,
+    'four': 4,
+    'five': 5,
+    'six': 6,
+    'seven': 7,
+    'eight': 8,
+    'nine': 9,
+  }
 
 def main(args):
     if os.path.exists(args.dataset):
@@ -35,7 +46,7 @@ def main(args):
             model = pipeline.unet
         else:
             if args.conditional:
-                model =Unet2DConditional(dataset['image'][0].width, args.classes)
+                model =CustomUnet2DConditional(dataset['image'][0].width, args.classes, class_emb_size = 8)
             else:
                 model = Unet2d(dataset['image'][0].width)  # Default diffusion Unet 2d model
     else:
@@ -60,7 +71,8 @@ def main(args):
     def transform(examples):
         images = [augmentations(image) for image in examples["image"]]
         if args.conditional:
-            return {"input":images, "label":examples["label"]}
+            labels = [label_mapping[label] for label in examples["label"]]
+            return {"input": images, "label": labels}
         return {"input": images}
 
     dataset.set_transform(transform)
@@ -134,7 +146,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
 
             with accelerator.accumulate(model):
                 if args.conditional:
-                    noise_pred = model(noisy_images, timesteps,class_labels)["sample"]
+                    noise_pred = model(noisy_images, timesteps,class_labels=class_labels)["sample"]
                 else:
                     noise_pred = model(noisy_images, timesteps)["sample"]
                 loss = F.mse_loss(noise_pred, noise)
