@@ -20,6 +20,8 @@ def main(args):
     print("FAD score is: ", fad_score)
 
 
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--from_pretrained', type=str, default=None)
