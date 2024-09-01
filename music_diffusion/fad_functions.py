@@ -51,6 +51,7 @@ def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 50
     # Process the files in chunks
     for file in tqdm(files):
         _mu, _S, _n = _process_file(file)
+        print("Passou")
         if _mu is None or _S is None or _n == 0:
             continue
         delta = _mu - mu
