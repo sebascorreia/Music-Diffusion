@@ -48,23 +48,15 @@ def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 50
     mu = np.zeros(embd_dim)
     S = np.zeros((embd_dim, embd_dim))  # Sum of squares for online covariance computation
     n = 0  # Counter for total number of frames
-    total_chunks = (len(files) + chunk_size - 1) // chunk_size
-    workers = 4
     # Process the files in chunks
-    for i in range(0, len(files), chunk_size):
-        chunk = files[i:i+chunk_size]
-        current_chunk = i // chunk_size + 1
-
-        print(f'Calculating statistics for chunk {current_chunk}/{total_chunks}')
-        with torch.multiprocessing.Pool(workers) as pool:
-            results = pool.map(_process_file, chunk)
-        for _mu, _S, _n in results:
-            if _mu is None or _S is None or _n==0:
-                continue
-            delta = _mu - mu
-            mu += _n / (n + _n) * delta
-            S += _S + delta[:, None] * delta[None, :] * n * _n / (n + _n)
-            n += _n
+    for file in tqdm(files):
+        _mu, _S, _n = _process_file(file)
+        if _mu is None or _S is None or _n == 0:
+            continue
+        delta = _mu - mu
+        mu += _n / (n + _n) * delta
+        S += _S + delta[:, None] * delta[None, :] * n * _n / (n + _n)
+        n += _n
 
     if n < 2:
         return mu, np.zeros_like(S)
