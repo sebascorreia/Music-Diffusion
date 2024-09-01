@@ -9,10 +9,18 @@ import fadtk
 import gc
 from tqdm import tqdm
 from scipy import linalg
+import signal
+import time
 PathLike = Union[str, Path]
 from hypy_utils.nlp_utils import substr_between
 from hypy_utils.tqdm_utils import pmap
-def _process_file(file: PathLike):
+
+
+def timeout_handler(signum, frame):
+    raise Exception("Processing file took too long Skipping ")
+def _process_file(file: PathLike, timeout: int = 60):
+    signal.signal(signal.SIGALRM, timeout_handler)
+    signal.alarm(timeout)
     try:
         embd = np.load(file)
         n = embd.shape[0]
