@@ -22,57 +22,42 @@ def _process_file(file: PathLike):
     del embd
     gc.collect()
     return mu,cov,n
-def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int=50, tmp_dir: Union[str, Path] = "/tmp") -> tuple[np.ndarray, np.ndarray]:
+
+
+def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 50) -> tuple[np.ndarray, np.ndarray]:
     """
-    Calculate the mean and covariance matrix of a list of embeddings in an online manner.
+    Calculate the mean and covariance matrix of a list of embeddings in an online manner, processing files in chunks.
 
     :param files: A list of npy files containing ndarrays with shape (n_frames, n_features)
+    :param chunk_size: Number of files to process in each chunk
     """
     assert len(files) > 0, "No files provided"
-    tmp_dir = Path(tmp_dir)
-    tmp_dir.mkdir(exist_ok=True)
+
     # Load the first file to get the embedding dimension
     embd_dim = np.load(files[0]).shape[-1]
 
+    # Initialize the mean and covariance matrix
+    mu = np.zeros(embd_dim)
+    S = np.zeros((embd_dim, embd_dim))  # Sum of squares for online covariance computation
+    n = 0  # Counter for total number of frames
 
-    n_total = 0  # Counter for total number of frames
-
-    num_chunks = (len(files) + chunk_size - 1) // chunk_size
+    # Process the files in chunks
     for i in range(0, len(files), chunk_size):
-        chunk = files[i:i + chunk_size]
-        chunk_num = i // chunk_size + 1
-        results = pmap(_process_file, chunk, desc=f'Calculating statistics for chunk {chunk_num}/{num_chunks}')
-        mu_chunk = np.zeros(embd_dim)
-        S_chunk = np.zeros((embd_dim, embd_dim))
-        n_chunk = 0
+        chunk = files[i:i+chunk_size]
+        results = pmap(_process_file, chunk, desc=f'Calculating statistics for chunk {i//chunk_size + 1}')
+
         for _mu, _S, _n in results:
-            delta = _mu - mu_chunk
-            mu_chunk += _n / (n_chunk + _n) * delta
-            S_chunk += _S + delta[:, None] * delta[None, :] * n_chunk * _n / (n_chunk + _n)
-            n_chunk += _n
-        np.save(tmp_dir / f"mu_chunk_{i}.npy", mu_chunk)
-        np.save(tmp_dir / f"S_chunk_{i}.npy", S_chunk)
-        n_total += n_chunk
+            delta = _mu - mu
+            mu += _n / (n + _n) * delta
+            S += _S + delta[:, None] * delta[None, :] * n * _n / (n + _n)
+            n += _n
 
-    mu_final = np.zeros(embd_dim)
-    S_final = np.zeros((embd_dim, embd_dim))
-    n_final = 0
-    for i in range(0, len(files), chunk_size):
-        mu_chunk = np.load(tmp_dir / f"mu_chunk_{i}.npy")
-        S_chunk = np.load(tmp_dir / f"S_chunk_{i}.npy")
-        n_chunk = np.sum([np.load(file).shape[0] for file in files[i:i + chunk_size]])  # Sum of frames in the chunk
-
-        delta = mu_chunk - mu_final
-        mu_final += n_chunk / (n_final + n_chunk) * delta
-        S_final += S_chunk + delta[:, None] * delta[None, :] * n_final * n_chunk / (n_final + n_chunk)
-        n_final +=n_chunk
-    if n_final != n_total:
-        print ("SOMETHING IS WRONG")
-    if n_final < 2:
-        return mu_final, np.zeros_like(S_final)
+    if n < 2:
+        return mu, np.zeros_like(S)
     else:
-        cov_final = S_final / (n_final - 1)  # compute the covariance matrix
-        return mu_final, cov_final
+        cov = S / (n - 1)  # compute the covariance matrix
+        return mu, cov
+
 
 
 def calc_frechet_distance(mu1, cov1, mu2, cov2, eps=1e-6):
