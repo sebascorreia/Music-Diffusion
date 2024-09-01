@@ -172,9 +172,11 @@ class NoCacheFAD(FrechetAudioDistance):
         return self.ml.load_wav(new)
 
     def score(self, baseline: Union[str, Path], eval: Union[str, Path]):
+        print("Loading STATS")
         mu_bg, cov_bg = self.load_stats(baseline)
+        print("BASELINE STAT LOADED")
         mu_eval, cov_eval = self.load_stats(eval)
-
+        print("EVAL STAT LOADED")
         return fadtk.calc_frechet_distance(mu_bg, cov_bg, mu_eval, cov_eval)
 
     def load_stats(self, path: Union[str, Path]):
