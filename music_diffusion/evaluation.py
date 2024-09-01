@@ -145,9 +145,7 @@ def FAD(args, pipeline):
     print("Generated folder embeddings done")
     fad = NoCacheFAD(model, audio_load_worker=16, load_model=False)
     print("FAD COMPUTED")
-    emb_gen_folder = "/content/gen_data"
-    emb_real_folder = "/content/real_data"
-    score = fad.score(emb_real_folder, emb_gen_folder)
+    score = fad.score(real_folder, gen_folder)
     print("FAD Score:", score)
     return score
 
