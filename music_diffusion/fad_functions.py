@@ -219,7 +219,7 @@ class NoCacheFAD(FrechetAudioDistance):
         print("BASELINE STAT LOADED")
         mu_eval, cov_eval = self.load_stats(eval)
         print("EVAL STAT LOADED")
-        return fadtk.calc_frechet_distance(mu_bg, cov_bg, mu_eval, cov_eval)
+        return calc_frechet_distance(mu_bg, cov_bg, mu_eval, cov_eval)
 
     def load_stats(self, path: Union[str, Path]):
         """
@@ -258,7 +258,7 @@ class NoCacheFAD(FrechetAudioDistance):
 
         print(f"Loading embedding files from {path}...")
 
-        mu, cov = fadtk.calculate_embd_statistics_online(list(emb_dir.glob("*.npy")))
+        mu, cov = calculate_embd_statistics_online(list(emb_dir.glob("*.npy")))
         print("> Embeddings statistics calculated.")
 
         # Save statistics
