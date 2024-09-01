@@ -19,6 +19,9 @@ def main(args):
     pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     pipeline.to(torch.device("cuda"))
     fad_score = FAD(args, pipeline)
+    output_file_path = os.path.join(args.output_dir, "fad_score.txt")
+    with open(output_file_path, "w") as f:
+        f.write(f"FAD score is: {fad_score}\n")
     print("FAD score is: ", fad_score)
 
 
