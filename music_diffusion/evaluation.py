@@ -123,8 +123,11 @@ def FAD(args, pipeline):
     audio_set = real_dataset['audio_slice']
     real_folder = os.path.join(args.output_dir, "real_data")
     os.makedirs(real_folder, exist_ok=True)
-    for i,audio in enumerate(audio_set):
-        mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
+    existing_real_audios = glob.glob(os.path.join(real_folder, "*.wav"))
+    if len(audio_set) > len(existing_real_audios):
+        for i,audio in enumerate(audio_set):
+            if i > len(existing_real_audios):
+                mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
     if args.fad_model=='enc24':
         model = fadtk.EncodecEmbModel(variant='24k')
     elif args.fad_model=='enc48':
