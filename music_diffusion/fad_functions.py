@@ -10,25 +10,25 @@ import gc
 from tqdm import tqdm
 from scipy import linalg
 import signal
-import time
 PathLike = Union[str, Path]
 from hypy_utils.nlp_utils import substr_between
 from hypy_utils.tqdm_utils import pmap
 
 
-def timeout_handler(signum, frame):
-    raise Exception("Processing file took too long Skipping ")
-def _process_file(file: PathLike, timeout: int = 60):
-    signal.signal(signal.SIGALRM, timeout_handler)
-    signal.alarm(timeout)
+
+def _process_file(file: PathLike):
     try:
+        print(f"Processing {file}")
         embd = np.load(file)
+        print(f"File {file} Loaded")
         n = embd.shape[0]
         mu = np.mean(embd, axis=0)
         cov = np.cov(embd, rowvar=False) * (n - 1)
+        print(f"File {file} Processed")
     except Exception as e:
         print(f"Error processing file {file}: {e}")
         return None, None, 0
+    print(f"File {file} Processed")
     return mu,cov,n
 
 
