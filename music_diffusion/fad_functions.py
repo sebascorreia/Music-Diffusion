@@ -6,6 +6,7 @@ import torchaudio
 import torch
 import multiprocessing
 import fadtk
+import gc
 from tqdm import tqdm
 from scipy import linalg
 PathLike = Union[str, Path]
@@ -14,7 +15,13 @@ from hypy_utils.tqdm_utils import pmap
 def _process_file(file: PathLike):
     embd = np.load(file)
     n = embd.shape[0]
-    return np.mean(embd, axis=0), np.cov(embd, rowvar=False) * (n - 1), n
+    mu = np.mean(embd, axis=0)
+    cov = np.cov(embd, rowvar=False) * (n - 1)
+
+    #clean up memory
+    del embd
+    gc.collect()
+    return mu,cov,n
 def calculate_embd_statistics_online(files: list[PathLike]) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the mean and covariance matrix of a list of embeddings in an online manner.
