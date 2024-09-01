@@ -61,9 +61,10 @@ def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int=50, 
         mu_chunk = np.load(tmp_dir / f"mu_chunk_{i}.npy")
         S_chunk = np.load(tmp_dir / f"S_chunk_{i}.npy")
         n_chunk = np.sum([np.load(file).shape[0] for file in files[i:i + chunk_size]])  # Sum of frames in the chunk
+
         delta = mu_chunk - mu_final
         mu_final += n_chunk / (n_final + n_chunk) * delta
-        S_final += S_chunk + delta[:, None] * delta[None, :] * n_final * chunk_size / (n_final + chunk_size)
+        S_final += S_chunk + delta[:, None] * delta[None, :] * n_final * n_chunk / (n_final + n_chunk)
         n_final +=n_chunk
     if n_final != n_total:
         print ("SOMETHING IS WRONG")
