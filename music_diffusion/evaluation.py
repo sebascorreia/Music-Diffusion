@@ -17,11 +17,11 @@ import glob
 from PIL import Image
 import torchvision.transforms as transforms
 
-def evaluate(args, epoch, pipeline):
+def generate(args, pipeline):
     # Sample some images from random noise (this is the backward diffusion process).
     # The default pipeline output type is `List[PIL.Image]`
     mel = Mel()
-    total_images = 100
+    total_images = args.num_gen_img
     batch_size = 6
     image_count = 0
 
@@ -35,9 +35,9 @@ def evaluate(args, epoch, pipeline):
                 generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                 # Use a separate torch generator to avoid rewinding the random state of the main training loop
             ).images
-    folder = os.path.join(args.output_dir, f"eval{epoch}")
+    folder = os.path.join(args.output_dir, f"eval")
     os.makedirs(folder, exist_ok=True)
-    for i,image in enumerate(images):
+    for i,image in enumerate(gen_images):
         audio = mel.image_to_audio(image)
         mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
         image.save(os.path.join(folder, f"samples{i}.jpg"))
