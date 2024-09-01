@@ -24,7 +24,7 @@ def _process_file(file: PathLike):
     return mu,cov,n
 
 
-def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 50) -> tuple[np.ndarray, np.ndarray]:
+def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 500) -> tuple[np.ndarray, np.ndarray]:
     """
     Calculate the mean and covariance matrix of a list of embeddings in an online manner, processing files in chunks.
 
@@ -40,11 +40,12 @@ def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 50
     mu = np.zeros(embd_dim)
     S = np.zeros((embd_dim, embd_dim))  # Sum of squares for online covariance computation
     n = 0  # Counter for total number of frames
-
+    total_chunks = (len(files) + chunk_size - 1) // chunk_size
     # Process the files in chunks
     for i in range(0, len(files), chunk_size):
         chunk = files[i:i+chunk_size]
-        results = pmap(_process_file, chunk, desc=f'Calculating statistics for chunk {i//chunk_size + 1}')
+        current_chunk = i // chunk_size + 1
+        results = pmap(_process_file, chunk, desc=f'Calculating statistics for chunk {current_chunk}/{total_chunks}')
 
         for _mu, _S, _n in results:
             delta = _mu - mu
