@@ -13,14 +13,14 @@ PathLike = Union[str, Path]
 from hypy_utils.nlp_utils import substr_between
 from hypy_utils.tqdm_utils import pmap
 def _process_file(file: PathLike):
-    embd = np.load(file)
-    n = embd.shape[0]
-    mu = np.mean(embd, axis=0)
-    cov = np.cov(embd, rowvar=False) * (n - 1)
-
-    #clean up memory
-    del embd
-    gc.collect()
+    try:
+        embd = np.load(file)
+        n = embd.shape[0]
+        mu = np.mean(embd, axis=0)
+        cov = np.cov(embd, rowvar=False) * (n - 1)
+    except Exception as e:
+        print(f"Error processing file {file}: {e}")
+        return None, None, 0
     return mu,cov,n
 
 
@@ -46,8 +46,9 @@ def calculate_embd_statistics_online(files: list[PathLike], chunk_size: int = 50
         chunk = files[i:i+chunk_size]
         current_chunk = i // chunk_size + 1
         results = pmap(_process_file, chunk, desc=f'Calculating statistics for chunk {current_chunk}/{total_chunks}')
-
         for _mu, _S, _n in results:
+            if _mu is None or _S is None or _n==0:
+                continue
             delta = _mu - mu
             mu += _n / (n + _n) * delta
             S += _S + delta[:, None] * delta[None, :] * n * _n / (n + _n)
