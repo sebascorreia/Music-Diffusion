@@ -2,18 +2,19 @@ import argparse
 import os
 import sys
 import torch
-from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline
+from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline,DDIMPipeline
 from datasets import load_dataset, load_from_disk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.evaluation import interpolation
 def main(args):
     if args.scheduler == "ddpm":
         noise_scheduler = DDPMScheduler(num_train_timesteps=1000)  # linear b_t [0.0001,0.02]
+        pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
-        noise_scheduler = DDIMScheduler(num_train_timesteps=50)
-    pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+        noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
+        pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     pipeline.to("cuda")
-    inter_img = interpolation(img1, img2, pipeline= pipeline)
+    inter_img = interpolation(args.img1, args.img2, pipeline= pipeline)
     print(type(inter_img))
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

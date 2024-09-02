@@ -24,7 +24,8 @@ def generate(args, pipeline):
     total_images = args.num_gen_img
     batch_size = 6
     image_count = 0
-
+    folder = os.path.join(args.output_dir, f"eval")
+    os.makedirs(folder, exist_ok=True)
     while image_count < total_images:
         remaining_images = total_images - image_count
         current_batch_size = min(batch_size, remaining_images)
@@ -35,12 +36,12 @@ def generate(args, pipeline):
                 generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                 # Use a separate torch generator to avoid rewinding the random state of the main training loop
             ).images
-    folder = os.path.join(args.output_dir, f"eval")
-    os.makedirs(folder, exist_ok=True)
-    for i,image in enumerate(gen_images):
-        audio = mel.image_to_audio(image)
-        mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
-        image.save(os.path.join(folder, f"samples{i}.jpg"))
+        image_count += current_batch_size
+
+        for i,image in enumerate(gen_images):
+            audio = mel.image_to_audio(image)
+            mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
+            image.save(os.path.join(folder, f"samples{i}.jpg"))
 
 def denoise(noisy_img, pipeline, timestep):
     pipeline.scheduler.alphas_cumprod = pipeline.scheduler.alphas_cumprod.to(noisy_img.device)

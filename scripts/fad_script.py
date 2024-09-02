@@ -11,10 +11,10 @@ import torch
 
 def main(args):
     if args.scheduler == "ddpm":
-        noise_scheduler = DDPMScheduler(num_train_timesteps=args.time_steps)  # linear b_t [0.0001,0.02]
+        noise_scheduler = DDPMScheduler(num_train_timesteps=1000)  # linear b_t [0.0001,0.02]
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
-        noise_scheduler = DDIMScheduler(num_train_timesteps=args.time_steps)
+        noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
         pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler, eta=args.eta)
     pipeline.to(torch.device("cuda"))
     fad_score = FAD(args, pipeline)
