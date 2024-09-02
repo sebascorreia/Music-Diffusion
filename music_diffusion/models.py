@@ -28,10 +28,10 @@ def Unet2d(sample_size):
 
 
 def CustomUnet2DConditional(sample_size=128, num_classes=10, class_emb_size=4):
-    return CustomConditionalModel(sample_size=sample_size, num_classes=num_classes, class_emb_size=class_emb_size)
+    return CustomConditionalModel(sample_size=sample_size, num_classes=num_classes, class_emb_size=class_emb_size).model
 
 
-class CustomConditionalModel(nn.Module):
+class CustomConditionalModel(UNet2DModel):
     def __init__(self, sample_size=128, num_classes=10, class_emb_size=4):
         super().__init__()
 
@@ -72,5 +72,34 @@ class CustomConditionalModel(nn.Module):
         output = self.model(net_input, t)
 
         return output
+
+
+def CondUnet2d(sample_size=128, num_classes=10):
+    return UNet2DModel(
+        sample_size=sample_size,
+        class_emb_type = "None",
+        num_class_embeds = num_classes,
+        in_channels=1,
+        out_channels=1,
+        layers_per_block=2,
+        block_out_channels=(128, 128, 256, 256, 512, 512),
+        down_block_types=(
+            "DownBlock2D",
+            "DownBlock2D",
+            "DownBlock2D",
+            "DownBlock2D",
+            "AttnDownBlock2D",
+            "DownBlock2D",
+        ),
+        up_block_types=(
+            "UpBlock2D",
+            "AttnUpBlock2D",
+            "UpBlock2D",
+            "UpBlock2D",
+            "UpBlock2D",
+            "UpBlock2D",
+        ),
+    )
+
 
 

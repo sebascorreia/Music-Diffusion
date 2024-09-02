@@ -15,8 +15,8 @@ import torch.nn.functional as F
 import sys
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from music_diffusion.evaluation import evaluate, FAD
-from music_diffusion.models import Unet2d, CustomUnet2DConditional
+from music_diffusion.evaluation import generate, FAD
+from music_diffusion.models import Unet2d, CondUnet2d
 label_mapping = {
     'zero': 0,
     'one': 1,
@@ -46,7 +46,7 @@ def main(args):
             model = pipeline.unet
         else:
             if args.conditional:
-                model =CustomUnet2DConditional(dataset['image'][0].width, args.classes, class_emb_size = 8)
+                model =CondUnet2d(dataset['image'][0].width, args.classes)
             else:
                 model = Unet2d(dataset['image'][0].width)  # Default diffusion Unet 2d model
     else:
@@ -182,7 +182,7 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                 ema_model.copy_to(unet.parameters())
             if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.epochs - 1:
                 model.eval()
-                evaluate(args, epoch, pipeline)
+                generate(args, epoch, pipeline)
                 model.train()
 
             if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.epochs - 1:

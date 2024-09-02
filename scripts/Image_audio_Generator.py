@@ -12,7 +12,7 @@ def main(args):
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.time_steps)
-        pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler, eta=args.eta)
+        pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     pipeline.to(torch.device("cuda"))
     generate(args,pipeline)
 if __name__ == '__main__':
