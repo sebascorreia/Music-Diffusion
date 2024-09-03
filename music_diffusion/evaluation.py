@@ -36,7 +36,7 @@ def generate(args, pipeline):
                     generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
-                    class_labels = torch.randint(0, 10, (batch_size,))
+                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
         else:
@@ -129,7 +129,7 @@ def FAD(args, pipeline):
                     generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
-                    class_labels = torch.randint(0, 10, (batch_size,))
+                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
         else:
