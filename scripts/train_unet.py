@@ -180,11 +180,6 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
                 pipeline = DDIMPipeline(unet=unet, scheduler=noise_scheduler)
             if args.use_ema:
                 ema_model.copy_to(unet.parameters())
-            if (epoch + 1) % args.save_image_epochs == 0 or epoch == args.epochs - 1:
-                model.eval()
-                generate(args, epoch, pipeline)
-                model.train()
-
             if (epoch + 1) % args.save_model_epochs == 0 or epoch == args.epochs - 1:
                 pipeline.save_pretrained(args.output_dir)
                 if args.push_to_hub:
@@ -197,6 +192,10 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
 
                 else:
                     pipeline.save.pretrained(args.output_dir)
+            if (epoch + 1) % args.save_image_epochs == 0:
+                model.eval()
+                generate(args, pipeline)
+                model.train()
             if (epoch + 1) % args.fad == 0 or epoch == args.epochs - 1:
                 fad_score = FAD(args, pipeline)
                 print("FAD score is: ", fad_score)
