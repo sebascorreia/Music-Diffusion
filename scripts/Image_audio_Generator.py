@@ -3,6 +3,7 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline, DDIMPipeline
+from music_diffusion.models import ConditionalDDIMPipeline
 import torch
 from music_diffusion.evaluation import generate
 
@@ -12,7 +13,10 @@ def main(args):
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.time_steps)
-        pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+        if args.cond:
+            pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler, eta=args.eta)
+        else:
+            pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     pipeline.to(torch.device("cuda"))
     generate(args,pipeline)
 if __name__ == '__main__':
@@ -23,6 +27,7 @@ if __name__ == '__main__':
     parser.add_argument('--scheduler', type=str, default="ddim")
     parser.add_argument('--time_steps', type=int, default=50)
     parser.add_argument('--eta', type=float, default=0.0)
+    parser.add_argument("--cond", type=bool, default=False)
     args = parser.parse_args()
     if args.from_pretrained is None:
         raise ValueError("Please specify a pretrained model")
