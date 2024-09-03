@@ -17,6 +17,11 @@ import glob
 from PIL import Image
 import torchvision.transforms as transforms
 
+preprocess = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Normalize([0.5], [0.5]),  # Convert PIL image to tensor
+])
+
 def generate(args, pipeline):
     # Sample some images from random noise (this is the backward diffusion process).
     # The default pipeline output type is `List[PIL.Image]`
@@ -80,15 +85,12 @@ def slerp(xt1, xt2, lamb):
         return (s1.unsqueeze(-1) * xt1) + (s2.unsqueeze(-1) * xt2)
 
 
-def interpolation(img1,img2, pipeline, timesteps=50,lamb=0.5, intp_type='slerp '):
-    preprocess = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5]),        # Convert PIL image to tensor
-    ])
+def interpolation(img1,img2, pipeline, noise_timesteps=1000, denoise_timesteps = 50,lamb=0.5, intp_type='slerp '):
+
 
     img1 = preprocess(img1).unsqueeze(0).to("cuda")
     img2 = preprocess(img2).unsqueeze(0).to("cuda")
-    timesteps = torch.tensor([timesteps], device=img1.device)
+    timesteps = torch.tensor([noise_timesteps], device=img1.device)
     noise1 = torch.randn_like(img1)
     noise2 = torch.randn_like(img2)
     xt1 = pipeline.scheduler.add_noise(img1, noise1, timesteps)
@@ -98,10 +100,19 @@ def interpolation(img1,img2, pipeline, timesteps=50,lamb=0.5, intp_type='slerp '
         xt_bar = lerp(xt1, xt2, lamb)
     else:
         xt_bar = slerp(xt1, xt2, lamb)
-    x0_bar = denoise(xt_bar,pipeline,timesteps)
+    x0_bar = denoise(xt_bar,pipeline,denoise_timesteps)
     return x0_bar
+def reconstruction(img, pipeline,  noise_timesteps=1000, denoise_timesteps = 50):
+    original = preprocess(img).unsqueeze(0).to("cuda")
+    noise = torch.randn_like(original)
+    noisy_img = pipeline.scheduler.add_noise(original, noise, noise_timesteps)
+    re_img = denoise(noisy_img, pipeline, denoise_timesteps)
 
+    return re_img, mse(re_img, original)
 
+def mse(img1, img2):
+    mse = torch.mean((img1 - img2) ** 2)
+    return mse
 def FAD(args, pipeline):
     try:
         real_dataset = load_from_disk(args.dataset)[args.fad_split]
