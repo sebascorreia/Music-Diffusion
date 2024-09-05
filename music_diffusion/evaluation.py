@@ -1,4 +1,4 @@
-from diffusers import DDPMPipeline
+from diffusers import DDPMPipeline, DDIMScheduler
 from diffusers.utils import make_image_grid
 import os
 import torch
@@ -16,7 +16,7 @@ import numpy as np
 import glob
 from PIL import Image
 import torchvision.transforms as transforms
-
+from music_diffusion.models import ConditionalDDIMPipeline
 preprocess = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.5], [0.5]),  # Convert PIL image to tensor
@@ -59,14 +59,38 @@ def generate(args, pipeline):
             audio = mel.image_to_audio(image)
             mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
             image.save(os.path.join(folder, f"samples{i}.jpg"))
+def noise(sample, pipeline, timesteps):
+    assert isinstance(pipeline.scheduler, DDIMScheduler)
+    pipeline.scheduler.set_timestep(timesteps)
+    for t in torch.flip(pipeline.scheduler.timesteps, (0,)):
+        prev_t = t-pipeline.scheduler.config.num_train_timesteps // pipeline.scheduler.num_inference_steps
+        alpha_prod_t = pipeline.scheduler.alphas_cumprod[t]
+        prev_alpha_prod_t = (
+            pipeline.scheduler.alphas_cumprod[prev_t] if prev_t >=0
+            else pipeline.scheduler.final_alpha_cumprod
+        )
+        beta_prod_t = 1 - alpha_prod_t
+        pred_noise = pipeline.unet(sample,t)["sample"]
+        pred_sample_dir = (1-prev_alpha_prod_t )**(0.5) * pred_noise
+        sample = (sample - pred_sample_dir) * (prev_alpha_prod_t **(-0.5))
+        sample = (sample * (alpha_prod_t ** (0.5))) + ((beta_prod_t**(0.5)) * pred_noise)
+    return sample
 
-def denoise(noisy_img, pipeline, timestep):
+def denoise(noisy_img, pipeline, timesteps,label=None):
     pipeline.scheduler.alphas_cumprod = pipeline.scheduler.alphas_cumprod.to(noisy_img.device)
-    for t in reversed(range(timestep)):
-        t_tensor = torch.tensor([t], device=noisy_img.device)
-        with torch.no_grad():
-            model_output = pipeline.unet(noisy_img, t_tensor).sample
-            denoisy_img = pipeline.scheduler.step(model_output, t_tensor, noisy_img).prev_sample
+    pipeline.scheduler.set_timestep(timesteps)
+    for step, t in enumerate(pipeline.scheduler.timesteps[0:]):
+        if isinstance(pipeline.unet, ConditionalDDIMPipeline):
+            model_output = pipeline.unet(noisy_img, t, label)["sample"]
+        else:
+            model_output = pipeline.unet(noisy_img, t)["sample"]
+
+        denoisy_img = pipeline.scheduler.step(model_output=model_output,
+                                                  timestep=t,
+                                                  sample=noisy_img,
+                                                  generator=torch.Generator(device='cpu')
+                                                  )["prev_sample"]
+
     return denoisy_img
 def lerp(xt1,xt2,lamb):
     return (1-lamb) * xt1 + lamb * xt2
