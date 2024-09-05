@@ -85,14 +85,14 @@ def slerp(xt1, xt2, lamb):
         return (s1.unsqueeze(-1) * xt1) + (s2.unsqueeze(-1) * xt2)
 
 
-def interpolation(img1,img2, pipeline, noise_timesteps=1000, denoise_timesteps = 50,lamb=0.5, intp_type='slerp '):
+def interpolation(img1,img2, pipeline, noise_timesteps=999, denoise_timesteps = 50,lamb=0.5, intp_type='slerp '):
 
 
     img1 = preprocess(img1).unsqueeze(0).to("cuda")
     img2 = preprocess(img2).unsqueeze(0).to("cuda")
     timesteps = torch.tensor([noise_timesteps], device=img1.device)
-    noise1 = torch.randn_like(img1)
-    noise2 = torch.randn_like(img2)
+    noise1 = torch.randn_like(img1).to('cuda')
+    noise2 = torch.randn_like(img2).to('cuda')
     xt1 = pipeline.scheduler.add_noise(img1, noise1, timesteps)
     xt2 = pipeline.scheduler.add_noise(img2, noise2, timesteps)
 
@@ -101,12 +101,15 @@ def interpolation(img1,img2, pipeline, noise_timesteps=1000, denoise_timesteps =
     else:
         xt_bar = slerp(xt1, xt2, lamb)
     x0_bar = denoise(xt_bar,pipeline,denoise_timesteps)
+    to_pil = transforms.ToPILImage()
+    x0_bar = to_pil(x0_bar)
     return x0_bar
-def reconstruction(img, pipeline,  noise_timesteps=1000, denoise_timesteps = 50):
+def reconstruction(img, pipeline,  timesteps = 50):
     original = preprocess(img).unsqueeze(0).to("cuda")
     noise = torch.randn_like(original)
-    noisy_img = pipeline.scheduler.add_noise(original, noise, noise_timesteps)
-    re_img = denoise(noisy_img, pipeline, denoise_timesteps)
+    t = torch.tensor([timesteps], device=original.device)
+    noisy_img = pipeline.scheduler.add_noise(original, noise, t)
+    re_img = denoise(noisy_img, pipeline, timesteps)
 
     return re_img, mse(re_img, original)
 

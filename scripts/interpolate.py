@@ -7,6 +7,7 @@ from datasets import load_dataset, load_from_disk
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.evaluation import interpolation
 from music_diffusion.utils import Mel
+from music_diffusion.models import ConditionalDDIMPipeline
 import random
 
 def save(args,mel, img, file):
@@ -56,7 +57,11 @@ def main(args):
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
-        pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+        if args.from_pretrained == "sebascorreia/DDPM-sc09-conditional-2":
+            pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+        else:
+            pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+            pipeline.scheduler.set_timesteps(50,"cuda")
     pipeline.to("cuda")
     inter_img = interpolation(img1, img2, pipeline= pipeline)
     save(args, mel, img1, args.output_dir)
@@ -75,7 +80,8 @@ if __name__ == '__main__':
     parser.add_argument('--output_dir', type=str, default='/interpol')
     parser.add_argument('--intp_type',type=str,default='slerp')
     parser.add_argument('--lamb_val', type=float, default=0.5)
-    parser.add_argument('--timesteps', type=int, default=50)
+    parser.add_argument('--denoise_timesteps', type=int, default=50)
+    parser.add_argument('--noise_timesteps', type=int, default=1000)
     parser.add_argument('--dataset', type=str, default="sebascorreia/sc09", choices=["sebascorreia/sc09", "sebascorreia/Maestro20h"])
     args = parser.parse_args()
 

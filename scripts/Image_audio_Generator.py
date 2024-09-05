@@ -14,7 +14,7 @@ def main(args):
     else:
         noise_scheduler = DDIMScheduler(num_train_timesteps=args.time_steps)
         if args.cond:
-            pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler, eta=args.eta)
+            pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
         else:
             pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     pipeline.to(torch.device("cuda"))
