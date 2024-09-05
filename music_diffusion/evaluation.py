@@ -64,17 +64,24 @@ def generate(args, pipeline,mel):
                 label = torch.randint(0, 10, (batch_size,)).to("cuda")
             else:
                 label = args.label
+            with torch.no_grad():
+                gen_images = pipeline(
+                    batch_size=current_batch_size,
+                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+                    eta=args.eta,
+                    num_inference_steps=args.time_steps,
+                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
+                    # Use a separate torch generator to avoid rewinding the random state of the main training loop
+                ).images
         else:
-            label = None
-        with torch.no_grad():
-            gen_images = pipeline(
-                batch_size=current_batch_size,
-                generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
-                eta=args.eta,
-                num_inference_steps=args.time_steps,
-                class_labels = label
-            # Use a separate torch generator to avoid rewinding the random state of the main training loop
-        ).images
+            with torch.no_grad():
+                gen_images = pipeline(
+                    batch_size=current_batch_size,
+                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+                    eta=args.eta,
+                    num_inference_steps=args.time_steps,
+                    # Use a separate torch generator to avoid rewinding the random state of the main training loop
+                ).images
         image_count += current_batch_size
 
         for i,image in enumerate(gen_images):
@@ -186,17 +193,23 @@ def FAD(args, pipeline):
         remaining_images = total_images - image_count
         current_batch_size = min(batch_size, remaining_images)
         if args.cond:
-            label = torch.randint(0, 10, (batch_size,)).to("cuda")
-        else:
-            label = None
             with torch.no_grad():
                 gen_images = pipeline(
                     batch_size=current_batch_size,
                     generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
-                    class_labels = label
+                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
+                ).images
+        else:
+            with torch.no_grad():
+                gen_images = pipeline(
+                    batch_size=current_batch_size,
+                    eta=args.eta,
+                    num_inference_steps = args.time_steps,
+                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+            # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
 
         for i,image in enumerate(gen_images):

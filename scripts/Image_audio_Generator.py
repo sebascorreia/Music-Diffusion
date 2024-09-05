@@ -38,7 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--time_steps', type=int, default=50)
     parser.add_argument('--eta', type=float, default=0.0)
     parser.add_argument("--cond", type=bool, default=False)
-    parser.add_argument('--class', type= str, default=None)
+    parser.add_argument('--label', type= str, default=None)
     args = parser.parse_args()
     if args.from_pretrained is None:
         raise ValueError("Please specify a pretrained model")
