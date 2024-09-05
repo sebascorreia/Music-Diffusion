@@ -27,8 +27,8 @@ label_mapping = {
 
 def save(args, mel, img, file):
 
-    audio1 = mel.image_to_audio(img)
-    mel.save_audio(audio1, os.path.join(args.output_dir, f"{file}.wav"))
+    audio = mel.image_to_audio(img)
+    mel.save_audio(audio, os.path.join(args.output_dir, f"{file}.wav"))
     img.save(os.path.join(args.output_dir, f"{file}.png"))
     print(f"Saved {file}")
 
@@ -78,9 +78,10 @@ def main(args):
         noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
         if args.from_pretrained == "sebascorreia/DDPM-sc09-conditional-2":
             pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+            pipeline.scheduler.set_timesteps(50, "cuda")
         else:
             pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
-            pipeline.scheduler.set_timesteps(50, "cuda")
+            pipeline.scheduler.set_timesteps(args.timesteps, "cuda")
     pipeline.to("cuda")
 
     if isinstance(pipeline, ConditionalDDIMPipeline):

@@ -7,13 +7,13 @@ from music_diffusion.models import ConditionalDDIMPipeline
 import torch
 from music_diffusion.evaluation import generate
 from music_diffusion.utils import Mel
-
+import random
 def main(args):
     if args.scheduler == "ddpm":
-        noise_scheduler = DDPMScheduler(num_train_timesteps=args.time_steps)  # linear b_t [0.0001,0.02]
+        noise_scheduler = DDPMScheduler(num_train_timesteps=1000)  # linear b_t [0.0001,0.02]
         pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
-        noise_scheduler = DDIMScheduler(num_train_timesteps=args.time_steps)
+        noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
         if args.cond:
             pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
         else:
@@ -27,6 +27,7 @@ def main(args):
                   sample_rate=16000,
                   n_fft=1024,
                   )
+    pipeline.scheduler.set_timesteps(args.time_steps)
     pipeline.to(torch.device("cuda"))
     generate(args,pipeline,mel)
 if __name__ == '__main__':
@@ -39,7 +40,10 @@ if __name__ == '__main__':
     parser.add_argument('--eta', type=float, default=0.0)
     parser.add_argument("--cond", type=bool, default=False)
     parser.add_argument('--label', type= str, default=None)
+    parser.add_argument('--seed', type=int, default=None)
     args = parser.parse_args()
+    if args.seed is None:
+        args.seed = random.randint(0, 1000)
     if args.from_pretrained is None:
         raise ValueError("Please specify a pretrained model")
     main(args)

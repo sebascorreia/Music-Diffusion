@@ -63,21 +63,22 @@ def generate(args, pipeline,mel):
             if args.label== None:
                 label = torch.randint(0, 10, (batch_size,)).to("cuda")
             else:
-                label = args.label
+                label = label_mapping[args.label]
+                label = torch.full((batch_size,), label).to("cuda")
             with torch.no_grad():
                 gen_images = pipeline(
                     batch_size=current_batch_size,
-                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+                    generator=torch.Generator(device='cpu').manual_seed(args.seed),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
-                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
+                    class_labels = label
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
         else:
             with torch.no_grad():
                 gen_images = pipeline(
                     batch_size=current_batch_size,
-                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+                    generator=torch.Generator(device='cpu').manual_seed(args.seed),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
