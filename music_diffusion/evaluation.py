@@ -61,7 +61,7 @@ def generate(args, pipeline):
             image.save(os.path.join(folder, f"samples{i}.jpg"))
 def noise(sample, pipeline, timesteps):
     assert isinstance(pipeline.scheduler, DDIMScheduler)
-    pipeline.scheduler.set_timestep(timesteps)
+    pipeline.scheduler.set_timesteps(timesteps)
     for t in torch.flip(pipeline.scheduler.timesteps, (0,)):
         prev_t = t-pipeline.scheduler.config.num_train_timesteps // pipeline.scheduler.num_inference_steps
         alpha_prod_t = pipeline.scheduler.alphas_cumprod[t]
