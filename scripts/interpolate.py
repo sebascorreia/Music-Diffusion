@@ -26,10 +26,10 @@ label_mapping = {
 
 
 def save(args, mel, img, file):
-    os.makedirs(args.output_dir, exist_ok=True)
+
     audio1 = mel.image_to_audio(img)
     mel.save_audio(audio1, os.path.join(args.output_dir, f"{file}.wav"))
-    img.save(os.path.join(args.output_dir, f"{file}.jpg"))
+    img.save(os.path.join(args.output_dir, f"{file}.png"))
     print(f"Saved {file}")
 
 
@@ -106,9 +106,10 @@ def main(args):
         class2=class2,
         interclass=interclass,
     )
-    save(args, mel, img1, args.output_dir)
-    save(args, mel, img2, args.output_dir)
-    save(args, mel, inter_img, args.output_dir)
+    os.makedirs(args.output_dir, exist_ok=True)
+    save(args, mel, img1, "img1")
+    save(args, mel, img2, "img2")
+    save(args, mel, inter_img, "inter_img")
 
 
 
@@ -121,7 +122,7 @@ if __name__ == '__main__':
     parser.add_argument('--interclass', type=str, default=None)
     parser.add_argument('--scheduler', type=str, default='DDPM')
     parser.add_argument('--from_pretrained', type=str, default="sebascorreia/DDPM-maestro20h")
-    parser.add_argument('--output_dir', type=str, default='/interpol')
+    parser.add_argument('--output_dir', type=str, default='/content/interpol')
     parser.add_argument('--intp_type', type=str, default='slerp')
     parser.add_argument('--lamb', type=float, default=0.5)
     parser.add_argument('--timesteps', type=int, default=50)

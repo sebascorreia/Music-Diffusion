@@ -17,7 +17,18 @@ import glob
 from PIL import Image
 import torchvision.transforms as transforms
 from music_diffusion.models import ConditionalDDIMPipeline
-
+label_mapping = {
+    'zero': 0,
+    'one': 1,
+    'two': 2,
+    'three': 3,
+    'four': 4,
+    'five': 5,
+    'six': 6,
+    'seven': 7,
+    'eight': 8,
+    'nine': 9,
+}
 preprocess = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.5], [0.5]),  # Convert PIL image to tensor
@@ -36,10 +47,10 @@ def postprocess(tensor):
     if len(pil_images) == 1:
         return pil_images[0]
     return pil_images
-def generate(args, pipeline):
+def generate(args, pipeline,mel):
     # Sample some images from random noise (this is the backward diffusion process).
     # The default pipeline output type is `List[PIL.Image]`
-    mel = Mel()
+
     total_images = args.num_gen_img
     batch_size = 6
     image_count = 0
@@ -49,24 +60,21 @@ def generate(args, pipeline):
         remaining_images = total_images - image_count
         current_batch_size = min(batch_size, remaining_images)
         if args.cond:
-            with torch.no_grad():
-                gen_images = pipeline(
-                    batch_size=current_batch_size,
-                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
-                    eta=args.eta,
-                    num_inference_steps=args.time_steps,
-                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
-                    # Use a separate torch generator to avoid rewinding the random state of the main training loop
-                ).images
+            if args.label== None:
+                label = torch.randint(0, 10, (batch_size,)).to("cuda")
+            else:
+                label = args.label
         else:
-            with torch.no_grad():
-                gen_images = pipeline(
-                    batch_size=current_batch_size,
-                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
-                    eta=args.eta,
-                    num_inference_steps=args.time_steps,
-                    # Use a separate torch generator to avoid rewinding the random state of the main training loop
-                ).images
+            label = None
+        with torch.no_grad():
+            gen_images = pipeline(
+                batch_size=current_batch_size,
+                generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
+                eta=args.eta,
+                num_inference_steps=args.time_steps,
+                class_labels = label
+            # Use a separate torch generator to avoid rewinding the random state of the main training loop
+        ).images
         image_count += current_batch_size
 
         for i,image in enumerate(gen_images):
@@ -88,6 +96,7 @@ def noise(sample, pipeline, timesteps, label=None):
         sample = sample.to("cuda")
         with torch.no_grad():
             if label is not None:
+                label = torch.tensor(label).to("cuda")
                 pred_noise = pipeline.unet(sample, t,label)["sample"]
             else:
                 pred_noise = pipeline.unet(sample, t)["sample"]
@@ -103,6 +112,7 @@ def denoise(noisy_img, pipeline, timesteps,label=None):
     with torch.no_grad():
       for step, t in enumerate(pipeline.scheduler.timesteps[0:]):
           if label is not None:
+              label = torch.tensor(label).to("cuda")
               model_output = pipeline.unet(noisy_img, t, label)["sample"]
           else:
               model_output = pipeline.unet(noisy_img, t)["sample"]
@@ -136,7 +146,7 @@ def interpolation(img1,img2, pipeline, timesteps = 50,lamb=0.5, intp_type='slerp
     img2 = preprocess(img2).unsqueeze(0).to("cuda")
 
     xt1 = noise(img1, pipeline, timesteps, class1)
-    xt2 = noise(img1, pipeline, timesteps,class2)
+    xt2 = noise(img2, pipeline, timesteps,class2)
 
     if intp_type == 'linear':
         xt_bar = lerp(xt1, xt2, lamb)
@@ -176,23 +186,17 @@ def FAD(args, pipeline):
         remaining_images = total_images - image_count
         current_batch_size = min(batch_size, remaining_images)
         if args.cond:
+            label = torch.randint(0, 10, (batch_size,)).to("cuda")
+        else:
+            label = None
             with torch.no_grad():
                 gen_images = pipeline(
                     batch_size=current_batch_size,
                     generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
-                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
+                    class_labels = label
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
-                ).images
-        else:
-            with torch.no_grad():
-                gen_images = pipeline(
-                    batch_size=current_batch_size,
-                    eta=args.eta,
-                    num_inference_steps = args.time_steps,
-                    generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
-            # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
 
         for i,image in enumerate(gen_images):

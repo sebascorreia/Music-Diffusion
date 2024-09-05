@@ -6,6 +6,7 @@ from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline, DDIMPipeline
 from music_diffusion.models import ConditionalDDIMPipeline
 import torch
 from music_diffusion.evaluation import generate
+from music_diffusion.utils import Mel
 
 def main(args):
     if args.scheduler == "ddpm":
@@ -17,8 +18,17 @@ def main(args):
             pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
         else:
             pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+    if args.from_pretrained == "sebascorreia/DDPM-Maestro-full":
+        mel = Mel()
+    else:
+        mel = Mel(x_res=128,
+                  y_res=128,
+                  hop_length=128,
+                  sample_rate=16000,
+                  n_fft=1024,
+                  )
     pipeline.to(torch.device("cuda"))
-    generate(args,pipeline)
+    generate(args,pipeline,mel)
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--from_pretrained', type=str, default=None)
@@ -28,6 +38,7 @@ if __name__ == '__main__':
     parser.add_argument('--time_steps', type=int, default=50)
     parser.add_argument('--eta', type=float, default=0.0)
     parser.add_argument("--cond", type=bool, default=False)
+    parser.add_argument('--class', type= str, default=None)
     args = parser.parse_args()
     if args.from_pretrained is None:
         raise ValueError("Please specify a pretrained model")
