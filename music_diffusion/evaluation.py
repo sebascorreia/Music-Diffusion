@@ -17,11 +17,25 @@ import glob
 from PIL import Image
 import torchvision.transforms as transforms
 from music_diffusion.models import ConditionalDDIMPipeline
+
 preprocess = transforms.Compose([
     transforms.ToTensor(),
     transforms.Normalize([0.5], [0.5]),  # Convert PIL image to tensor
 ])
-
+def postprocess(tensor):
+    if tensor.dim() == 3:
+        tensor = tensor.unsqueeze(0)
+    tensor = (tensor/2 + 0.5).clamp(0, 1)
+    tensor = tensor.cpu().permute(0,2,3,1).numpy()
+    tensor = (tensor*255).round().astype("uint8")
+    pil_images = [
+        Image.fromarray(image[:, :, 0]) if image.shape[2] == 1
+        else Image.fromarray(image,mode="RGB".convert("L"))
+        for image in tensor
+    ]
+    if len(pil_images) == 1:
+        return pil_images[0]
+    return pil_images
 def generate(args, pipeline):
     # Sample some images from random noise (this is the backward diffusion process).
     # The default pipeline output type is `List[PIL.Image]`
@@ -59,7 +73,7 @@ def generate(args, pipeline):
             audio = mel.image_to_audio(image)
             mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
             image.save(os.path.join(folder, f"samples{i}.jpg"))
-def noise(sample, pipeline, timesteps):
+def noise(sample, pipeline, timesteps, label=None):
     assert isinstance(pipeline.scheduler, DDIMScheduler)
     pipeline.scheduler.set_timesteps(timesteps)
     for t in torch.flip(pipeline.scheduler.timesteps, (0,)):
@@ -70,7 +84,13 @@ def noise(sample, pipeline, timesteps):
             else pipeline.scheduler.final_alpha_cumprod
         )
         beta_prod_t = 1 - alpha_prod_t
-        pred_noise = pipeline.unet(sample,t)["sample"]
+        t= t.to("cuda")
+        sample = sample.to("cuda")
+        with torch.no_grad():
+            if label is not None:
+                pred_noise = pipeline.unet(sample, t,label)["sample"]
+            else:
+                pred_noise = pipeline.unet(sample, t)["sample"]
         pred_sample_dir = (1-prev_alpha_prod_t )**(0.5) * pred_noise
         sample = (sample - pred_sample_dir) * (prev_alpha_prod_t **(-0.5))
         sample = (sample * (alpha_prod_t ** (0.5))) + ((beta_prod_t**(0.5)) * pred_noise)
@@ -78,20 +98,20 @@ def noise(sample, pipeline, timesteps):
 
 def denoise(noisy_img, pipeline, timesteps,label=None):
     pipeline.scheduler.alphas_cumprod = pipeline.scheduler.alphas_cumprod.to(noisy_img.device)
-    pipeline.scheduler.set_timestep(timesteps)
-    for step, t in enumerate(pipeline.scheduler.timesteps[0:]):
-        if isinstance(pipeline.unet, ConditionalDDIMPipeline):
-            model_output = pipeline.unet(noisy_img, t, label)["sample"]
-        else:
-            model_output = pipeline.unet(noisy_img, t)["sample"]
+    pipeline.scheduler.set_timesteps(timesteps)
+    noisy_img = noisy_img
+    with torch.no_grad():
+      for step, t in enumerate(pipeline.scheduler.timesteps[0:]):
+          if label is not None:
+              model_output = pipeline.unet(noisy_img, t, label)["sample"]
+          else:
+              model_output = pipeline.unet(noisy_img, t)["sample"]
 
-        denoisy_img = pipeline.scheduler.step(model_output=model_output,
-                                                  timestep=t,
-                                                  sample=noisy_img,
-                                                  generator=torch.Generator(device='cpu')
-                                                  )["prev_sample"]
+          noisy_img = pipeline.scheduler.step(model_output=model_output,
+                                                    timestep=t,
+                                                    sample=noisy_img)["prev_sample"]
 
-    return denoisy_img
+    return noisy_img
 def lerp(xt1,xt2,lamb):
     return (1-lamb) * xt1 + lamb * xt2
 def slerp(xt1, xt2, lamb):
@@ -109,31 +129,26 @@ def slerp(xt1, xt2, lamb):
         return (s1.unsqueeze(-1) * xt1) + (s2.unsqueeze(-1) * xt2)
 
 
-def interpolation(img1,img2, pipeline, noise_timesteps=999, denoise_timesteps = 50,lamb=0.5, intp_type='slerp '):
+def interpolation(img1,img2, pipeline, timesteps = 50,lamb=0.5, intp_type='slerp ',class1=None, class2=None,  interclass= None):
 
 
     img1 = preprocess(img1).unsqueeze(0).to("cuda")
     img2 = preprocess(img2).unsqueeze(0).to("cuda")
-    timesteps = torch.tensor([noise_timesteps], device=img1.device)
-    noise1 = torch.randn_like(img1).to('cuda')
-    noise2 = torch.randn_like(img2).to('cuda')
-    xt1 = pipeline.scheduler.add_noise(img1, noise1, timesteps)
-    xt2 = pipeline.scheduler.add_noise(img2, noise2, timesteps)
+
+    xt1 = noise(img1, pipeline, timesteps, class1)
+    xt2 = noise(img1, pipeline, timesteps,class2)
 
     if intp_type == 'linear':
         xt_bar = lerp(xt1, xt2, lamb)
     else:
         xt_bar = slerp(xt1, xt2, lamb)
-    x0_bar = denoise(xt_bar,pipeline,denoise_timesteps)
-    to_pil = transforms.ToPILImage()
-    x0_bar = to_pil(x0_bar)
-    return x0_bar
-def reconstruction(img, pipeline,  timesteps = 50):
+    x0_bar = denoise(xt_bar,pipeline,timesteps, interclass)
+    inter_img = postprocess(x0_bar)
+    return inter_img
+def reconstruction(img, pipeline,  timesteps = 50, label= None):
     original = preprocess(img).unsqueeze(0).to("cuda")
-    noise = torch.randn_like(original)
-    t = torch.tensor([timesteps], device=original.device)
-    noisy_img = pipeline.scheduler.add_noise(original, noise, t)
-    re_img = denoise(noisy_img, pipeline, timesteps)
+    noisy_img = noise(original, pipeline, timesteps, label)
+    re_img = denoise(noisy_img, pipeline, timesteps,label)
 
     return re_img, mse(re_img, original)
 
