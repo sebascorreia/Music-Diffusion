@@ -61,10 +61,10 @@ def generate(args, pipeline,mel):
         current_batch_size = min(batch_size, remaining_images)
         if args.cond:
             if args.label== None:
-                label = torch.randint(0, 10, (batch_size,)).to("cuda")
+                label = torch.randint(0, 10, (current_batch_size,)).to("cuda")
             else:
                 label = label_mapping[args.label]
-                label = torch.full((batch_size,), label).to("cuda")
+                label = torch.full((current_batch_size,), label).to("cuda")
             with torch.no_grad():
                 gen_images = pipeline(
                     batch_size=current_batch_size,
@@ -179,7 +179,19 @@ def reconstruction(img, pipeline,  timesteps = 50, label= None):
 def mse(img1, img2):
     mse = torch.mean((img1 - img2) ** 2, dim=[1, 2, 3])
     return mse
-def FAD(args, pipeline):
+
+def get_available_folder(directory,name, max_files):
+    folder_index = 0
+    while True:
+        f_name = (folder_index * max_files) +1
+        current_folder = os.path.join(directory, f"{name}{f_name}")
+        os.makedirs(current_folder, exist_ok=True)
+        existing_audios = glob.glob(os.path.join(current_folder, "*.wav"))
+        if len(existing_audios) < max_files:
+            return current_folder, len(existing_audios)
+        folder_index += 1
+
+def FAD(args, mel, pipeline):
     try:
         real_dataset = load_from_disk(args.dataset)[args.fad_split]
     except FileNotFoundError:
@@ -187,14 +199,18 @@ def FAD(args, pipeline):
             real_dataset = load_dataset(args.dataset, split=args.fad_split)
         except Exception as e:
             raise e
-    mel = Mel()
-    gen_folder= os.path.join(args.output_dir, f"eval")
+    if args.cond:
+        p_gen_folder = os.path.join(args.output_dir, "cond")
+        gen_folder = os.path.join(p_gen_folder, "genaudio")
+    else:
+        p_gen_folder = os.path.join(args.output_dir, "uncond")
+        gen_folder = os.path.join(p_gen_folder, "genaudio")
     os.makedirs(gen_folder, exist_ok=True)
-    existing_audios = glob.glob(os.path.join(gen_folder, "*.wav"))
+    existing_audios = glob.glob(os.path.join(gen_folder,'**', "*.wav"), recursive=True)
     total_images = args.num_gen_img - len(existing_audios)
     if total_images < 0:
         total_images = 0
-    batch_size = 6
+    batch_size = args.gen_batch_size
     image_count=0
     while image_count < total_images:
         remaining_images = total_images - image_count
@@ -206,7 +222,7 @@ def FAD(args, pipeline):
                     generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
                     eta=args.eta,
                     num_inference_steps=args.time_steps,
-                    class_labels = torch.randint(0, 10, (batch_size,)).to("cuda")
+                    class_labels = torch.randint(0, 10, (current_batch_size,)).to("cuda")
                     # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
         else:
@@ -216,21 +232,29 @@ def FAD(args, pipeline):
                     eta=args.eta,
                     num_inference_steps = args.time_steps,
                     generator=torch.Generator(device='cpu').manual_seed(55 + image_count),
-            # Use a separate torch generator to avoid rewinding the random state of the main training loop
+                    # Use a separate torch generator to avoid rewinding the random state of the main training loop
                 ).images
-
+        current_folder, folder_count = get_available_folder(gen_folder, "genaudio",args.folder_max)
         for i,image in enumerate(gen_images):
+            if folder_count > args.folder_max:
+                current_folder, folder_count = get_available_folder(gen_folder, "genaudio", args.folder_max)
             audio = mel.image_to_audio(image)
-            mel.save_audio(audio, os.path.join(gen_folder, f"genaudio{image_count + i}.wav"))
+            mel.save_audio(audio, os.path.join(current_folder, f"genaudio{image_count + i}.wav"))
+            folder_count += 1
         image_count += current_batch_size
     audio_set = real_dataset['audio_slice']
-    real_folder = os.path.join(args.output_dir, "real_data")
+    real_folder = os.path.join(args.output_dir, "Audio")
     os.makedirs(real_folder, exist_ok=True)
-    existing_real_audios = glob.glob(os.path.join(real_folder, "*.wav"))
+    existing_real_audios = glob.glob(os.path.join(real_folder,'**', "*.wav"), recursive=True)
+
     if len(audio_set) > len(existing_real_audios):
+        current_folder, folder_count = get_available_folder(real_folder, "audio", args.folder_max)
         for i,audio in enumerate(audio_set):
             if i > len(existing_real_audios):
-                mel.save_audio(audio, os.path.join(real_folder, f"audio{i}.wav"))
+                if folder_count > args.folder_max:
+                    current_folder, folder_count = get_available_folder(real_folder, "audio", args.folder_max)
+                mel.save_audio(audio, os.path.join(current_folder, f"audio{i}.wav"))
+                folder_count += 1
     if args.fad_model=='enc24':
         model = fadtk.EncodecEmbModel(variant='24k')
     elif args.fad_model=='enc48':
@@ -242,9 +266,11 @@ def FAD(args, pipeline):
     else:
         raise ValueError("fadtk model not implemented")
     print("model: ", model.name)
-    no_cache_embedding_files(real_folder, model, workers=3, batch_size=6)
+    real_embs = os.path.join(args.output_dir, f"{model.name}/Embeddings")
+    no_cache_embedding_files(real_folder, embs=real_embs,ml=model, workers=32, batch_size=32)
     print("Real folder embeddings done")
-    no_cache_embedding_files(gen_folder, model, workers=3, batch_size=6)
+    gen_emb = os.path.join(p_gen_folder, f"{model.name}/Embeddings")
+    no_cache_embedding_files(gen_folder,embs=gen_emb, ml=model, workers=32, batch_size=32)
     print("Generated folder embeddings done")
     fad = NoCacheFAD(model, audio_load_worker=16, load_model=False)
     print("FAD COMPUTED")

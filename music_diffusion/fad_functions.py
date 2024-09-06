@@ -138,30 +138,37 @@ def calc_frechet_distance(mu1, cov1, mu2, cov2, eps=1e-6):
             + np.trace(cov2) - 2 * tr_covmean)
 
 
-def get_no_cache_embedding_path(model: str, audio_dir: Union[str, Path]) -> Path:
+def get_no_cache_embedding_path(audio_file: Union[str, Path], embs: Union[str, Path]) -> Path:
     """
     Get the path to the cached embedding npy file for an audio file.
 
     :param model: The name of the model
     :param audio_dir: The path to the audio file
     """
-    audio_dir = Path(audio_dir)
-    return audio_dir.parent / "embeddings" / model / audio_dir.with_suffix(".npy").name
+    audio_file = Path(audio_file)
+    emb_subfolder = audio_file.parent.name.replace("audio","emb")
+    return Path(embs) / emb_subfolder / audio_file.with_suffix(".npy").name
 
 
-def no_cache_embedding_files(files: Union[list[Path], str, Path], ml: ModelLoader, workers: int = 8,batch_size:int =50, **kwargs):
+def no_cache_embedding_files(
+        files: Union[list[Path],str, Path],
+        embs: Union[list[Path], str, Path],
+        ml: ModelLoader,
+        workers: int = 8,
+        batch_size:int =50,
+        **kwargs):
     """
     Get embeddings for all audio files in a directory.
 
     :param workers: basically 1/batch_size
-    :param files: is files bruv
+    :param files: is files
     :param ml_fn: A function that returns a ModelLoader instance.
     """
     if isinstance(files, (str, Path)):
-        files = list(Path(files).glob('*.*'))
+        files = list(Path(files).rglob('*.wav'))
 
     # Filter out files that already have embeddings
-    files = [f for f in files if not get_no_cache_embedding_path(ml.name, f).exists()]
+    files = [f for f in files if not get_no_cache_embedding_path(f,embs).exists()]
     if len(files) == 0:
         print("All files already have embeddings, skipping.")
         return
