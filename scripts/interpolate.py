@@ -78,7 +78,7 @@ def main(args):
         noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
         if args.from_pretrained == "sebascorreia/DDPM-sc09-conditional-2":
             pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
-            pipeline.scheduler.set_timesteps(50, "cuda")
+            pipeline.scheduler.set_timesteps(args.timesteps, "cuda")
         else:
             pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
             pipeline.scheduler.set_timesteps(args.timesteps, "cuda")

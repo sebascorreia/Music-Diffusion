@@ -32,10 +32,10 @@ label_mapping = {
 
 def main(args):
     if os.path.exists(args.dataset):
-        dataset = load_from_disk(args.dataset)["train"]
+        dataset = load_from_disk(args.dataset)["test"]
     else:
         try:
-            dataset = load_dataset(args.dataset, split="train")
+            dataset = load_dataset(args.dataset, split="test")
         except Exception as e:
             raise ValueError(f"Dataset error: {str(e)} ")
 

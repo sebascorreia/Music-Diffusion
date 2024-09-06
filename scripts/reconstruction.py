@@ -6,7 +6,7 @@ from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline, DDIMPipeline
 from datasets import load_dataset, load_from_disk
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from music_diffusion.evaluation import reconstruction
+from music_diffusion.evaluation import reconstruction,postprocess
 from music_diffusion.utils import Mel
 from music_diffusion.models import ConditionalDDIMPipeline
 from scripts.interpolate import get_img, save
@@ -38,7 +38,8 @@ def main(args):
         pipeline = ConditionalDDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     else:
         pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
-    pipeline.scheduler.set_timesteps(50, "cuda")
+    pipeline.scheduler.set_timesteps(args.timesteps, "cuda")
+    pipeline.to("cuda")
     if args.filter is not None:
         c1dataset = dataset.filter(lambda x: x["label"] == args.filter)
         img = get_img(args.img, c1dataset)
@@ -49,9 +50,11 @@ def main(args):
     else:
         label = None
     re_img, mse = reconstruction(img, pipeline, args.timesteps, label)
-    print("MSE RESULTS: ", mse)
-    save(args, img, mel, "original")
-    save(args, re_img, mel, "reconstruction")
+    re_img = postprocess(re_img)
+    print("MSE RESULTS: ", mse.item())
+    os.makedirs(args.output_dir, exist_ok=True)
+    save(args, mel, img, "original")
+    save(args, mel, re_img, "reconstruction")
 
 
 if __name__ == '__main__':
