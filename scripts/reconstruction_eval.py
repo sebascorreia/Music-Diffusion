@@ -19,14 +19,14 @@ augmentations = transforms.Compose(
     ]
 )
 def mse_batch(batch, pipeline, timesteps):
-    batch_mse=0
+    batch_mse=0.0
     for img in batch:
         if isinstance(pipeline, ConditionalDDIMPipeline):
-            label = img["label"]
+            label = img[1]
         else:
             label = None
-        _, img_mse = reconstruction(img = img["input"], pipeline=pipeline, timesteps=timesteps, label=label)
-        batch_mse +=img_mse
+        _, img_mse = reconstruction(img = img[0], pipeline=pipeline, timesteps=timesteps, label=label)
+        batch_mse +=img_mse.item()
     return batch_mse/len(batch)
 def main(args):
     accelerator = Accelerator()
@@ -53,13 +53,12 @@ def main(args):
     else:
         pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
     pipeline.to(accelerator.device)
-    pipeline.model.eval()
+    pipeline.unet.eval()
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     pipeline, dataloader = accelerator.prepare(pipeline, dataloader)
-    batch_mse =0
+    batch_mse =0.0
     for step, batch in enumerate(dataloader):
-        batch.to(accelerator.device)
         batch_mse = mse_batch(batch, pipeline, args.timesteps)
     total_mse = batch_mse / len(dataloader)
     print(total_mse)
@@ -77,11 +76,12 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--from_pretrained', type=str, default="sebascorreia/DDPM-maestro20h")
-    parser.add_argument('--output_dir', type=str, default='/eval')
-    parser.add_argument('--dataset', type=str, default="sebascorreia/sc09",
+    parser.add_argument('--output_dir', type=str, default='/content/eval')
+    parser.add_argument('--dataset', type=str, default="sebascorreia/Maestro20h",
                         choices=["sebascorreia/sc09", "sebascorreia/Maestro20h"])
     parser.add_argument('--timesteps', type=int, default=50)
     parser.add_argument('--batch_size', type=int, default=16)
+    parser.add_argument('--conditional', type=bool, default=False)
     args = parser.parse_args()
 
     main(args)
