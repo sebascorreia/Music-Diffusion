@@ -1,33 +1,29 @@
 import argparse
 import os
 import sys
-from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline,DDIMPipeline
+from diffusers import DDPMScheduler, DDIMScheduler, DDPMPipeline, DDIMPipeline
 from datasets import load_dataset, load_from_disk
 from accelerate import Accelerator
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
+
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 from music_diffusion.models import ConditionalDDIMPipeline
+import multiprocessing
 from music_diffusion.utils import Mel
 from music_diffusion.evaluation import reconstruction
 import torch
-label_mapping = {'zero': 0,'one': 1,'two': 2,'three': 3,'four': 4,'five': 5,'six': 6,'seven': 7,'eight': 8,'nine': 9,}
+
+label_mapping = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
+                 'nine': 9, }
 augmentations = transforms.Compose(
     [
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5]),
     ]
 )
-def mse_batch(batch, pipeline, timesteps):
-    batch_mse=0.0
-    for img in batch:
-        if isinstance(pipeline, ConditionalDDIMPipeline):
-            label = img[1]
-        else:
-            label = None
-        _, img_mse = reconstruction(img = img[0], pipeline=pipeline, timesteps=timesteps, label=label)
-        batch_mse +=img_mse.item()
-    return batch_mse/len(batch)
+
+
 def main(args):
     accelerator = Accelerator()
     if os.path.exists(args.dataset):
@@ -44,8 +40,8 @@ def main(args):
             labels = [label_mapping[label] for label in examples["label"]]
             return {"input": images, "label": labels}
         return {"input": images}
-    dataset.set_transform(transform)
 
+    dataset.set_transform(transform)
 
     noise_scheduler = DDIMScheduler(num_train_timesteps=1000)
     if args.from_pretrained == "sebascorreia/DDPM-sc09-conditional-2":
@@ -57,20 +53,22 @@ def main(args):
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     pipeline, dataloader = accelerator.prepare(pipeline, dataloader)
-    batch_mse =0.0
+    batch_mse = 0.0
     for step, batch in enumerate(dataloader):
-        batch_mse = mse_batch(batch, pipeline, args.timesteps)
+        images = torch.stack([img["input"] for img in batch]).to(pipeline.device)
+        print("IMAGE TENSOR SHAPE: ", images.shape)
+        if args.conditional:
+            labels = torch.tensor([img["label"] for img in batch]).to(pipeline.device)
+            print("LABEL TENSOR SHAPE: ", labels.shape)
+        else:
+            labels = None
+        batch_mse += reconstruction(images, pipeline, args.timesteps, labels)
     total_mse = batch_mse / len(dataloader)
     print(total_mse)
     os.makedirs(args.output, exist_ok=True)
     with open(args.output, "w") as f:
         f.write(f"MSE score is: {total_mse}\n")
     print("MSE score is: ", total_mse)
-
-
-
-
-
 
 
 if __name__ == '__main__':
@@ -85,4 +83,3 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     main(args)
-

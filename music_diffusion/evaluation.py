@@ -164,14 +164,20 @@ def interpolation(img1,img2, pipeline, timesteps = 50,lamb=0.5, intp_type='slerp
     inter_img = postprocess(x0_bar)
     return inter_img
 def reconstruction(img, pipeline,  timesteps = 50, label= None):
-    original = preprocess(img).unsqueeze(0).to("cuda")
-    noisy_img = noise(original, pipeline, timesteps, label)
+    eval = False
+    if isinstance(img, torch.Tensor):
+        eval = True
+    else:
+        img = preprocess(img).unsqueeze(0).to("cuda")
+    noisy_img = noise(img, pipeline, timesteps, label)
     re_img = denoise(noisy_img, pipeline, timesteps,label)
+    if eval:
+        return mse(re_img, img)
 
-    return re_img, mse(re_img, original)
+    return re_img, mse(re_img, img)
 
 def mse(img1, img2):
-    mse = torch.mean((img1 - img2) ** 2)
+    mse = torch.mean((img1 - img2) ** 2, dim=[1, 2, 3])
     return mse
 def FAD(args, pipeline):
     try:
