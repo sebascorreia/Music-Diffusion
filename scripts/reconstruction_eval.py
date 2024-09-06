@@ -13,6 +13,7 @@ import multiprocessing
 from music_diffusion.utils import Mel
 from music_diffusion.evaluation import reconstruction
 import torch
+from tqdm import tqdm
 
 label_mapping = {'zero': 0, 'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5, 'six': 6, 'seven': 7, 'eight': 8,
                  'nine': 9, }
@@ -53,17 +54,23 @@ def main(args):
 
     dataloader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False)
     pipeline, dataloader = accelerator.prepare(pipeline, dataloader)
-    batch_mse = 0.0
+    mean_mse = 0.0
+    progress_bar = tqdm(total=len(dataloader))
+    progress_bar.set_description("MSE Reconstruction")
     for step, batch in enumerate(dataloader):
-        images = torch.stack([img["input"] for img in batch]).to(pipeline.device)
-        print("IMAGE TENSOR SHAPE: ", images.shape)
+        images = batch['input']
+        images = torch.stack([img for img in images]).to(pipeline.device)
         if args.conditional:
-            labels = torch.tensor([img["label"] for img in batch]).to(pipeline.device)
+            labels = batch['label']
+            labels = torch.tensor([label for label in labels]).to(pipeline.device)
             print("LABEL TENSOR SHAPE: ", labels.shape)
         else:
             labels = None
-        batch_mse += reconstruction(images, pipeline, args.timesteps, labels)
-    total_mse = batch_mse / len(dataloader)
+        batch_mse = reconstruction(images, pipeline, args.timesteps, labels)
+        mean_mse += batch_mse.mean().item()
+
+        progress_bar.update(1)
+    total_mse = mean_mse / len(dataloader)
     print(total_mse)
     os.makedirs(args.output, exist_ok=True)
     with open(args.output, "w") as f:
