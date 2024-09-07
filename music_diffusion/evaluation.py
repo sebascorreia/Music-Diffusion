@@ -203,8 +203,10 @@ def FAD(args, mel, pipeline):
         p_gen_folder = os.path.join(args.output_dir, "cond")
         gen_folder = os.path.join(p_gen_folder, "genaudio")
     else:
+        print("Unconditional!!!!")
         p_gen_folder = os.path.join(args.output_dir, "uncond")
         gen_folder = os.path.join(p_gen_folder, "genaudio")
+    os.makedirs(p_gen_folder,exist_ok=True)
     os.makedirs(gen_folder, exist_ok=True)
     existing_audios = glob.glob(os.path.join(gen_folder,'**', "*.wav"), recursive=True)
     total_images = args.num_gen_img - len(existing_audios)
@@ -214,6 +216,7 @@ def FAD(args, mel, pipeline):
     image_count=0
     while image_count < total_images:
         remaining_images = total_images - image_count
+        print("Remaining Images: ", remaining_images)
         current_batch_size = min(batch_size, remaining_images)
         if args.cond:
             with torch.no_grad():
@@ -249,10 +252,12 @@ def FAD(args, mel, pipeline):
 
     if len(audio_set) > len(existing_real_audios):
         current_folder, folder_count = get_available_folder(real_folder, "audio", args.folder_max)
+        print("Current Folder:", str(current_folder))
         for i,audio in enumerate(audio_set):
             if i > len(existing_real_audios):
                 if folder_count > args.folder_max:
                     current_folder, folder_count = get_available_folder(real_folder, "audio", args.folder_max)
+                    print("Current Folder:", str(current_folder))
                 mel.save_audio(audio, os.path.join(current_folder, f"audio{i}.wav"))
                 folder_count += 1
     if args.fad_model=='enc24':
