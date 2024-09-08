@@ -184,27 +184,29 @@ def no_cache_embedding_files(
         batches = list(np.array_split(chunk, workers))
             # Cache embeddings in parallel
         with torch.multiprocessing.Pool(workers) as pool:
-            pool.map(no_cache_embedding_batch, [(b, ml, kwargs) for b in batches])
+            pool.map(no_cache_embedding_batch, [(b, ml,embs, kwargs) for b in batches])
 
 
 def no_cache_embedding_batch(args):
     fs: list[Path]
     ml: ModelLoader
-    fs, ml, kwargs = args
-    fad = NoCacheFAD(ml, **kwargs)
+    fs, ml,embs, kwargs = args
+    fad = NoCacheFAD(ml,embs=embs, **kwargs)
     for f in fs:
         print(f"Loading {f} using {ml.name}")
         fad.cache_embedding_file(f)
 
 
 class NoCacheFAD(FrechetAudioDistance):
+    def __init__(self, *args, embs=None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.embs = embs
 
     def cache_embedding_file(self, audio_dir: Union[str, Path]):
         """
         Compute embedding for an audio file and cache it to a file.
         """
-        emb_path = get_no_cache_embedding_path(self.ml.name, audio_dir)
-
+        emb_path = get_no_cache_embedding_path(audio_dir, self.embs)
         if emb_path.exists():
             return
 
