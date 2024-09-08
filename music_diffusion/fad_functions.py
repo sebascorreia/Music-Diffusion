@@ -147,7 +147,9 @@ def get_no_cache_embedding_path(audio_file: Union[str, Path], embs: Union[str, P
     """
     audio_file = Path(audio_file)
     emb_subfolder = audio_file.parent.name.replace("audio","emb")
-    return Path(embs) / emb_subfolder / audio_file.with_suffix(".npy").name
+    emb_path = Path(embs) / emb_subfolder / audio_file.with_suffix(".npy").name
+    print("EMB PATH: ", emb_path)
+    return emb_path
 
 
 def no_cache_embedding_files(
