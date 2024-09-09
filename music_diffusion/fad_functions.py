@@ -167,7 +167,8 @@ def no_cache_embedding_files(
     :param ml_fn: A function that returns a ModelLoader instance.
     """
     if isinstance(files, (str, Path)):
-        files = list(Path(files).rglob('*.wav'))
+        # Collect all wav files but ignore those that have been converted
+        files = [f for f in Path(files).rglob('*.wav') if 'converted' not in f.parts]
 
     # Filter out files that already have embeddings
     files = [f for f in files if not get_no_cache_embedding_path(f,embs).exists()]
