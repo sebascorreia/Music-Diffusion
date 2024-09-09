@@ -148,7 +148,7 @@ def get_no_cache_embedding_path(audio_file: Union[str, Path], embs: Union[str, P
     audio_file = Path(audio_file)
     emb_subfolder = audio_file.parent.name.replace("audio","emb")
     emb_path = Path(embs) / emb_subfolder / audio_file.with_suffix(".npy").name
-    print("EMB PATH: ", emb_path)
+
     return emb_path
 
 
@@ -270,8 +270,8 @@ class NoCacheFAD(FrechetAudioDistance):
                     raise ValueError(f"FAD statistics file {path} doesn't contain data for model {self.ml.name}")
                 return data[f'{self.ml.name}.mu'], data[f'{self.ml.name}.cov']
 
-        cache_dir = path / self.ml.name / "stats"
-        emb_dir = path / self.ml.name/ "Embeddings"
+        cache_dir = path.parent / self.ml.name / "stats"
+        emb_dir = path.parent / self.ml.name/ "Embeddings"
         if cache_dir.exists():
             print(f"Embedding statistics is already cached for {path}, loading...")
             mu = np.load(cache_dir / "mu.npy")

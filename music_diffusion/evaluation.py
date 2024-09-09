@@ -203,7 +203,6 @@ def FAD(args, mel, pipeline):
         p_gen_folder = os.path.join(args.output_dir, "cond")
         gen_folder = os.path.join(p_gen_folder, "genaudio")
     else:
-        print("Unconditional!!!!")
         p_gen_folder = os.path.join(args.output_dir, "uncond")
         gen_folder = os.path.join(p_gen_folder, "genaudio")
     os.makedirs(p_gen_folder,exist_ok=True)
