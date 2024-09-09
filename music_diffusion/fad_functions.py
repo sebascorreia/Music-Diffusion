@@ -168,7 +168,7 @@ def no_cache_embedding_files(
     """
     if isinstance(files, (str, Path)):
         # Collect all wav files but ignore those that have been converted
-        files = [f for f in Path(files).rglob('*.wav') if 'converted' not in f.parts]
+        files = [f for f in Path(files).rglob('*.wav') if '24000' not in f.parts]
 
     # Filter out files that already have embeddings
     files = [f for f in files if not get_no_cache_embedding_path(f,embs).exists()]
