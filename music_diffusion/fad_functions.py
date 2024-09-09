@@ -270,8 +270,8 @@ class NoCacheFAD(FrechetAudioDistance):
                     raise ValueError(f"FAD statistics file {path} doesn't contain data for model {self.ml.name}")
                 return data[f'{self.ml.name}.mu'], data[f'{self.ml.name}.cov']
 
-        cache_dir = path / "stats" / self.ml.name
-        emb_dir = path / "embeddings" / self.ml.name
+        cache_dir = path / self.ml.name / "stats"
+        emb_dir = path / self.ml.name/ "Embeddings"
         if cache_dir.exists():
             print(f"Embedding statistics is already cached for {path}, loading...")
             mu = np.load(cache_dir / "mu.npy")
@@ -284,7 +284,7 @@ class NoCacheFAD(FrechetAudioDistance):
 
         print(f"Loading embedding files from {path}...")
 
-        mu, cov = calculate_embd_statistics_online(list(emb_dir.glob("*.npy")))
+        mu, cov = calculate_embd_statistics_online(list(emb_dir.rglob("*.npy")))
         print("> Embeddings statistics calculated.")
 
         # Save statistics
