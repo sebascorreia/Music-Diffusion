@@ -215,9 +215,12 @@ class NoCacheFAD(FrechetAudioDistance):
 
         # Load file, get embedding, save embedding
         wav_data = self.load_audio(audio_dir)
-        embd = self.ml.get_embedding(wav_data)
-        emb_path.parent.mkdir(parents=True, exist_ok=True)
-        np.save(emb_path, embd)
+        if wav_data is not None:
+            embd = self.ml.get_embedding(wav_data)
+            emb_path.parent.mkdir(parents=True, exist_ok=True)
+            np.save(emb_path, embd)
+        else:
+            print(f"Skipped {audio_dir} due to error in loading")
 
     def load_audio(self, f: Union[str, Path]):
         f = Path(f)
@@ -225,18 +228,22 @@ class NoCacheFAD(FrechetAudioDistance):
         new = (save_path / f.name).with_suffix(".wav")
         if not new.exists():
             save_path.mkdir(parents=True, exist_ok=True)
-            x, fsorig = torchaudio.load(f)
-            x = torch.mean(x, 0).unsqueeze(0)  # convert to mono
-            resampler = torchaudio.transforms.Resample(
-                fsorig,
-                self.ml.sr,
-                lowpass_filter_width=64,
-                rolloff=0.9475937167399596,
-                resampling_method="sinc_interp_kaiser",
-                beta=14.769656459379492,
-            )
-            y = resampler(x)
-            torchaudio.save(new, y, self.ml.sr, encoding="PCM_S", bits_per_sample=16)
+            try:
+                x, fsorig = torchaudio.load(f)
+                x = torch.mean(x, 0).unsqueeze(0)  # convert to mono
+                resampler = torchaudio.transforms.Resample(
+                    fsorig,
+                    self.ml.sr,
+                    lowpass_filter_width=64,
+                    rolloff=0.9475937167399596,
+                    resampling_method="sinc_interp_kaiser",
+                    beta=14.769656459379492,
+                )
+                y = resampler(x)
+                torchaudio.save(new, y, self.ml.sr, encoding="PCM_S", bits_per_sample=16)
+            except Exception as e:
+                print(f"Failed to load audio file {f}: {e}")
+                return None
         return self.ml.load_wav(new)
 
     def score(self, baseline: Union[str, Path], eval: Union[str, Path]):
