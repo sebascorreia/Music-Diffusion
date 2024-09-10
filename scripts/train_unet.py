@@ -32,30 +32,22 @@ label_mapping = {
 
 def main(args):
     if os.path.exists(args.dataset):
-        dataset = load_from_disk(args.dataset)["test"]
+        dataset = load_from_disk(args.dataset)["train"]
     else:
         try:
-            dataset = load_dataset(args.dataset, split="test")
+            dataset = load_dataset(args.dataset, split="train")
         except Exception as e:
             raise ValueError(f"Dataset error: {str(e)} ")
 
-    if args.scheduler == "ddpm":
-        noise_scheduler = DDPMScheduler(num_train_timesteps=args.train_steps)  #linear b_t [0.0001,0.02]
-        if args.from_pretrained is not None:
-            pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
-            model = pipeline.unet
-        else:
-            if args.conditional:
-                model =CondUnet2d(dataset['image'][0].width, args.classes)
-            else:
-                model = Unet2d(dataset['image'][0].width)  # Default diffusion Unet 2d model
+    noise_scheduler = DDPMScheduler(num_train_timesteps=args.train_steps)  #linear b_t [0.0001,0.02]
+    if args.from_pretrained is not None:
+        pipeline = DDPMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
+        model = pipeline.unet
     else:
-        noise_scheduler = DDIMScheduler(num_train_timesteps=args.train_steps)
-        if args.from_pretrained is not None:
-            pipeline = DDIMPipeline.from_pretrained(args.from_pretrained, scheduler=noise_scheduler)
-            model = pipeline.unet
+        if args.conditional:
+            model =CondUnet2d(dataset['image'][0].width, args.classes)
         else:
-            model = Unet2d()  # Default diffusion Unet 2d model
+            model = Unet2d(dataset['image'][0].width)  # Default diffusion Unet 2d model
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -114,7 +106,6 @@ def train_loop(args, model, noise_scheduler, optimizer, train_dataloader, lr_sch
     global_step = 0
 
     for epoch in range(args.epochs):
-
 
         if epoch < args.start_epoch:
             for step in range(len(train_dataloader)):

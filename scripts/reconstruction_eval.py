@@ -72,8 +72,9 @@ def main(args):
         progress_bar.update(1)
     total_mse = mean_mse / len(dataloader)
     print(total_mse)
-    os.makedirs(args.output, exist_ok=True)
-    with open(args.output, "w") as f:
+    os.makedirs(args.output_dir, exist_ok=True)
+    output_file_path = os.path.join(args.output_dir, "MSE_score.txt")
+    with open(output_file_path, "w") as f:
         f.write(f"MSE score is: {total_mse}\n")
     print("MSE score is: ", total_mse)
 
