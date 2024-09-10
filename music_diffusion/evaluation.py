@@ -89,7 +89,7 @@ def generate(args, pipeline,mel):
             audio = mel.image_to_audio(image)
             mel.save_audio(audio, os.path.join(folder, f"samples{i}.wav"))
             image.save(os.path.join(folder, f"samples{i}.jpg"))
-def noise(sample, pipeline, timesteps, label=None):
+def noise(sample, pipeline, timesteps, label=None): #taken from teticio/audio-diffusion
     assert isinstance(pipeline.scheduler, DDIMScheduler)
     pipeline.scheduler.set_timesteps(timesteps)
     for t in torch.flip(pipeline.scheduler.timesteps, (0,)):
